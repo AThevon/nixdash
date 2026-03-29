@@ -66,9 +66,11 @@ search_fzf() {
   if (( multiselect )); then
     fzf_args+=(
       --multi
-      --bind 'tab:toggle+clear-query'
-      --header "TAB select · ENTER launch shell · ESC cancel"
-      --preview "echo 'Temporary Shell'; echo '─────────────────'; echo ''; echo 'TAB     Select/deselect a package'; echo '        Query is cleared after each'; echo '        selection so you can search'; echo '        for the next one.'; echo ''; echo 'ENTER   Launch shell with selected'; echo 'ESC     Cancel'; echo ''; echo '─────────────────'; echo '✓ = already installed (info only)'"
+      --bind 'tab:toggle+down'
+      --bind 'shift-tab:toggle+up'
+      --bind 'ctrl-l:clear-query'
+      --header "TAB select · SHIFT-TAB deselect · CTRL-L clear search · ENTER confirm"
+      --preview "echo 'Temporary Shell'; echo '─────────────────'; echo ''; echo 'TAB         Select and move down'; echo 'SHIFT-TAB   Deselect and move up'; echo 'CTRL-L      Clear search query'; echo ''; echo 'ENTER       Launch shell'; echo 'ESC         Cancel'; echo ''; echo '─────────────────'; echo '✓ = already in your config'"
       --preview-window "right:40%:wrap"
     )
   fi
