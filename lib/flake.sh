@@ -149,11 +149,27 @@ cmd_add_flake() {
   echo -e "  ${COLOR_CYAN}Package :${COLOR_RESET} ${full_pkg} ajouté aux packages" >&2
   echo >&2
 
-  # 6. Confirm
-  if ! ui_confirm "Appliquer ces modifications ?"; then
-    ui_warn "Annulé"
-    return 0
-  fi
+  # 6. Choose action
+  local action
+  action="$(ui_choose "$input_name :" \
+    "⊕  Installer dans la config" \
+    "»  Tester dans un shell d'abord" \
+    "↩  Annuler")" || return 0
+
+  case "$action" in
+    *"Tester"*)
+      ui_info "Lancement d'un shell temporaire avec $url..."
+      ui_dim "Tapez 'exit' pour quitter le shell temporaire."
+      nix shell "$url"
+      return 0
+      ;;
+    *"Annuler")
+      ui_warn "Annulé"
+      return 0
+      ;;
+  esac
+
+  # Continue with install...
 
   # 7. Check structure
   local flake_file
@@ -199,10 +215,10 @@ cmd_add_flake() {
   rm -f "$flake_backup" "$pkg_backup"
 
   # 10. Apply
-  local auto_apply
-  auto_apply="$(config_get "auto_apply")"
+  local skip_confirmation
+  skip_confirmation="$(config_get "skip_confirmation")"
 
-  if [[ "$auto_apply" == "true" ]]; then
+  if [[ "$skip_confirmation" == "true" ]]; then
     ui_info "Application automatique..."
   else
     if ! ui_confirm "Appliquer les changements ?"; then
@@ -318,7 +334,7 @@ cmd_init() {
   [[ -z "$apply_cmd" ]] && { ui_error "Commande d'apply requise"; return 1; }
 
   # 10. Auto apply = false
-  local auto_apply="false"
+  local skip_confirmation="false"
 
   # 11. Analyze flake structure
   local structure_info=""
@@ -356,14 +372,14 @@ cmd_init() {
   config_set "flake_file" "$flake_file"
   config_set "packages_file" "$pkg_file"
   config_set "apply_command" "$apply_cmd"
-  config_set "auto_apply" "$auto_apply"
+  config_set "skip_confirmation" "$skip_confirmation"
 
   echo >&2
   ui_success "Configuration sauvegardée dans $CONFIG_FILE"
   echo -e "  ${COLOR_DIM}flake_file    = $flake_file${COLOR_RESET}" >&2
   echo -e "  ${COLOR_DIM}packages_file = $pkg_file${COLOR_RESET}" >&2
   echo -e "  ${COLOR_DIM}apply_command = $apply_cmd${COLOR_RESET}" >&2
-  echo -e "  ${COLOR_DIM}auto_apply    = $auto_apply${COLOR_RESET}" >&2
+  echo -e "  ${COLOR_DIM}skip_confirmation    = $skip_confirmation${COLOR_RESET}" >&2
   echo -e "\n${COLOR_GREEN}nixdash est prêt !${COLOR_RESET} Lancez ${COLOR_BOLD}nixdash${COLOR_RESET} pour commencer.\n" >&2
 }
 
@@ -397,8 +413,8 @@ _config_preview() {
       echo "Utilisé pour ajouter des flake inputs"
       echo "et détecter les packages externes."
       ;;
-    auto_apply)
-      echo -e "${COLOR_GREEN}◉${COLOR_RESET}  Apply automatique"
+    skip_confirmation)
+      echo -e "${COLOR_GREEN}◉${COLOR_RESET}  Passer la confirmation"
       echo ""
       echo "Si activé, nixdash applique les changements"
       echo "immédiatement sans demander confirmation."
@@ -433,26 +449,24 @@ _config_preview() {
 cmd_config() {
   config_ensure
 
-  # Resolve nixdash.sh path for preview
-  local nixdash_bin
-  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nixdash.sh"
+  local nixdash_bin="$NIXDASH_BIN"
 
   while true; do
-    local pkg_file flake_file apply_cmd auto_apply
+    local pkg_file flake_file apply_cmd skip_confirmation
     pkg_file="$(config_get "packages_file")"
     flake_file="$(config_get "flake_file")"
     apply_cmd="$(config_get "apply_command")"
-    auto_apply="$(config_get "auto_apply")"
+    skip_confirmation="$(config_get "skip_confirmation")"
 
     local auto_label="non"
-    [[ "$auto_apply" == "true" ]] && auto_label="oui"
+    [[ "$skip_confirmation" == "true" ]] && auto_label="oui"
 
     local choice
     choice="$(printf '%s\n' \
       "packages_file │ ${COLOR_VIOLET}▪${COLOR_RESET}  Fichier packages : $pkg_file" \
       "apply_command │ ${COLOR_VIOLET}▸${COLOR_RESET}  Commande d'apply : $apply_cmd" \
       "flake_file    │ ${COLOR_VIOLET}◈${COLOR_RESET}  Fichier flake : $flake_file" \
-      "auto_apply    │ ${COLOR_GREEN}◉${COLOR_RESET}  Apply auto : $auto_label" \
+      "skip_confirmation    │ ${COLOR_GREEN}◉${COLOR_RESET}  Passer la confirmation : $auto_label" \
       "update_index  │ ${COLOR_VIOLET}↻${COLOR_RESET}  Mettre à jour l'index nix-search-tv" \
       "redetect      │ ${COLOR_VIOLET}⟳${COLOR_RESET}  Relancer la détection (nixdash init)" \
       "back          │ ${COLOR_DIM}↩${COLOR_RESET}  Retour" \
@@ -491,13 +505,13 @@ cmd_config() {
         [[ -n "$new_val" ]] && config_set "flake_file" "$new_val"
         ui_success "Fichier flake mis à jour"
         ;;
-      auto_apply)
-        if [[ "$auto_apply" == "true" ]]; then
-          config_set "auto_apply" "false"
-          ui_success "Apply auto désactivé"
+      skip_confirmation)
+        if [[ "$skip_confirmation" == "true" ]]; then
+          config_set "skip_confirmation" "false"
+          ui_success "Confirmation réactivée"
         else
-          config_set "auto_apply" "true"
-          ui_success "Apply auto activé"
+          config_set "skip_confirmation" "true"
+          ui_success "Confirmation désactivée"
         fi
         ;;
       update_index)

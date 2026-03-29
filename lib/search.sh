@@ -43,9 +43,7 @@ search_fzf() {
   local installed_set
   installed_set="$(_search_build_installed_set)"
 
-  # Resolve nixdash.sh path for preview
-  local nixdash_bin
-  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nixdash.sh"
+  local nixdash_bin="$NIXDASH_BIN"
 
   # Build fzf args
   local fzf_args=(
@@ -171,10 +169,10 @@ cmd_search() {
         packages_add "$pkg"
         ui_diff "$backup" "$pkg_file"
 
-        local auto_apply
-        auto_apply="$(config_get "auto_apply")"
+        local skip_confirmation
+        skip_confirmation="$(config_get "skip_confirmation")"
 
-        if [[ "$auto_apply" == "true" ]]; then
+        if [[ "$skip_confirmation" == "true" ]]; then
           ui_info "Application automatique..."
         else
           if ! ui_confirm "Installer $pkg ?"; then

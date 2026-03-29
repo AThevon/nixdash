@@ -334,11 +334,11 @@ _packages_do_remove() {
   # Show diff
   ui_diff "$backup" "$pkg_file"
 
-  # Check auto_apply
-  local auto_apply
-  auto_apply="$(config_get "auto_apply")"
+  # Check skip_confirmation
+  local skip_confirmation
+  skip_confirmation="$(config_get "skip_confirmation")"
 
-  if [[ "$auto_apply" == "true" ]]; then
+  if [[ "$skip_confirmation" == "true" ]]; then
     ui_info "Application automatique..."
   else
     if ! ui_confirm "Appliquer les changements ?"; then
@@ -385,9 +385,7 @@ cmd_list() {
     fzf_input+="$line"
   done <<< "$_PACKAGES_CACHE"
 
-  # Resolve nixdash.sh path for preview
-  local nixdash_bin
-  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nixdash.sh"
+  local nixdash_bin="$NIXDASH_BIN"
 
   # Show in fzf
   local selection

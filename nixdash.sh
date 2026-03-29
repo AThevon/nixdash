@@ -17,6 +17,9 @@ if [[ ! -d "$ASSETS_DIR" ]]; then
   ASSETS_DIR="$(dirname "$SCRIPT_DIR")/assets/nixdash"
 fi
 
+# Resolve own binary path (for fzf --preview subprocesses)
+NIXDASH_BIN="$(command -v nixdash 2>/dev/null || echo "$SCRIPT_DIR/nixdash.sh")"
+
 source "$LIB_DIR/config.sh"
 source "$LIB_DIR/ui.sh"
 source "$LIB_DIR/packages.sh"
@@ -97,8 +100,7 @@ cmd_hub() {
 
   print_logo
 
-  local nixdash_bin
-  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  local nixdash_bin="$NIXDASH_BIN"
 
   # Build styled header
   local header
