@@ -11,27 +11,6 @@ _search_build_installed_set() {
   done <<< "$_PACKAGES_CACHE" | sort
 }
 
-# _shell_preview PKG SELECTED_LIST — shows selected packages + package info
-_shell_preview() {
-  local pkg="$1"
-  local selected_str="$2"
-
-  # Show selected packages
-  if [[ -n "$selected_str" ]]; then
-    echo "Selected packages:"
-    echo "─────────────────────────"
-    for s in $selected_str; do
-      echo "  • $s"
-    done
-    echo ""
-    echo "─────────────────────────"
-    echo ""
-  fi
-
-  # Show package info
-  _search_preview "$pkg"
-}
-
 # _search_preview PKG — shows package info from nix-search-tv
 _search_preview() {
   local pkg="$1"

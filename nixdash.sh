@@ -143,14 +143,12 @@ cmd_hub() {
     local cmd
     cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
 
-    # Launch commands as subprocesses to get a clean TTY
-    # Ignore exit codes so ESC/cancel don't kill the hub loop
     case "$cmd" in
-      list)      "$NIXDASH_BIN" list || true ;;
-      search)    "$NIXDASH_BIN" search || true ;;
-      shell)     "$NIXDASH_BIN" shell || true ;;
-      add-flake) "$NIXDASH_BIN" add-flake || true ;;
-      config)    "$NIXDASH_BIN" config || true ;;
+      list)      cmd_list || true ;;
+      search)    cmd_search || true ;;
+      shell)     cmd_shell || true ;;
+      add-flake) cmd_add_flake || true ;;
+      config)    cmd_config || true ;;
     esac
   done
 }
@@ -211,9 +209,6 @@ main() {
       ;;
     _search-preview)
       shift; _search_preview "$@"
-      ;;
-    _shell-preview)
-      shift; _shell_preview "$@"
       ;;
     _list-preview)
       shift; _list_preview "$@"
