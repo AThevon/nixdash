@@ -84,6 +84,7 @@ cmd_shell() {
       --layout=reverse \
       --border \
       --delimiter " " \
+      --with-nth "1,3.." \
       --header "TAB select · ENTER confirm · ESC cancel" \
       --preview "bash '$nixdash_bin' _search-preview {3}" \
       --preview-window "right:50%:wrap" \

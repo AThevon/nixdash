@@ -248,6 +248,7 @@ cmd_search() {
     --layout=reverse \
     --border \
     --delimiter " " \
+    --with-nth "1,3.." \
     --header "TAB select multiple · ENTER confirm · ESC cancel" \
     --preview "bash '$nixdash_bin' _search-preview {3}" \
     --preview-window "right:50%:wrap" \
