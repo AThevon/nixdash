@@ -12,37 +12,70 @@ _packages_init_flake_prefixes() {
   flake_file="$(config_get "flake_file")"
   [[ -n "$flake_file" && -f "$flake_file" ]] || return 0
 
-  # Extract input names from the inputs block, excluding well-known non-package inputs
+  # Strategy: extract input names from flake.nix inputs block
+  # Supports both formats:
+  #   wt.url = "...";
+  #   wt = { url = "..."; };
   local in_inputs=0
   local line
   while IFS= read -r line; do
-    # Detect start of inputs block
     if [[ "$line" =~ ^[[:space:]]*inputs[[:space:]]*=[[:space:]]*\{ ]]; then
       in_inputs=1
       continue
     fi
-    # Detect end of inputs block
     if (( in_inputs )) && [[ "$line" =~ ^[[:space:]]*\}[[:space:]]*\; ]]; then
       break
     fi
     if (( in_inputs )); then
-      # Match lines like: wt.url = "..."; or wt = { url = "..."; };
+      local name=""
+      # Format: wt.url = "..."; or wt.inputs...
       if [[ "$line" =~ ^[[:space:]]*([a-zA-Z0-9_-]+)\.(url|inputs) ]]; then
-        local name="${BASH_REMATCH[1]}"
-        # Skip well-known non-package inputs
-        case "$name" in
-          nixpkgs|home-manager|flake-utils|systems|nix-darwin|darwin) continue ;;
-        esac
-        # Only add if not already present
-        if [[ ! $'\n'"$_FLAKE_PREFIXES"$'\n' == *$'\n'"$name"$'\n'* ]]; then
-          if [[ -n "$_FLAKE_PREFIXES" ]]; then
-            _FLAKE_PREFIXES+=$'\n'
-          fi
-          _FLAKE_PREFIXES+="$name"
-        fi
+        name="${BASH_REMATCH[1]}"
+      # Format: wt = { or wt = {
+      elif [[ "$line" =~ ^[[:space:]]*([a-zA-Z0-9_-]+)[[:space:]]*=[[:space:]]*\{ ]]; then
+        name="${BASH_REMATCH[1]}"
+      fi
+
+      [[ -z "$name" ]] && continue
+
+      # Skip well-known non-package inputs
+      case "$name" in
+        nixpkgs|home-manager|flake-utils|systems|nix-darwin|darwin) continue ;;
+      esac
+      # Only add if not already present
+      if [[ ! $'\n'"$_FLAKE_PREFIXES"$'\n' == *$'\n'"$name"$'\n'* ]]; then
+        [[ -n "$_FLAKE_PREFIXES" ]] && _FLAKE_PREFIXES+=$'\n'
+        _FLAKE_PREFIXES+="$name"
       fi
     fi
   done < "$flake_file"
+
+  # Also check extraSpecialArgs to find what names are actually passed to modules
+  # This helps match "zigpkgs" (passed arg) vs "zig-overlay" (input name)
+  local esa_line
+  esa_line="$(grep -n "extraSpecialArgs" "$flake_file" 2>/dev/null | head -1 | cut -d: -f1)" || true
+  if [[ -n "$esa_line" ]]; then
+    # Read a few lines after extraSpecialArgs to find inherit statements
+    local inherit_names
+    inherit_names="$(awk -v start="$esa_line" '
+      NR >= start && NR <= start+5 && /inherit/ {
+        gsub(/inherit|;|\{|\}/, "")
+        print
+      }
+    ' "$flake_file" | xargs -n1 2>/dev/null)" || true
+
+    # Add any names from extraSpecialArgs that aren't already known
+    local iname
+    for iname in $inherit_names; do
+      case "$iname" in
+        system|username|nixpkgs|home-manager|self) continue ;;
+      esac
+      if [[ ! $'\n'"$_FLAKE_PREFIXES"$'\n' == *$'\n'"$iname"$'\n'* ]]; then
+        [[ -n "$_FLAKE_PREFIXES" ]] && _FLAKE_PREFIXES+=$'\n'
+        _FLAKE_PREFIXES+="$iname"
+      fi
+    done
+  fi
 }
 
 # _packages_is_flake_prefix PREFIX — returns 0 if prefix is a known flake input
@@ -66,7 +99,8 @@ _packages_detect_type() {
       nodePackages|python3Packages|python311Packages|python312Packages|\
       perlPackages|rubyPackages|haskellPackages|luaPackages|\
       emacsPackages|vimPlugins|gnomeExtensions|xfce|libsForQt5|\
-      plasma5Packages|kdePackages|mate|cinnamon|pantheon)
+      plasma5Packages|kdePackages|qt6Packages|mate|cinnamon|pantheon|\
+      nerd-fonts|akkuPackages)
         echo "nixpkgs"
         return
         ;;
@@ -75,6 +109,10 @@ _packages_detect_type() {
       echo "flake"
       return
     fi
+    # If prefix is unknown (not in our nixpkgs list), treat as flake/custom
+    # This catches overlays like zigpkgs.master and flake inputs
+    echo "flake"
+    return
   fi
   echo "nixpkgs"
 }
@@ -374,12 +412,30 @@ _list_preview() {
     local display_name="$2"
     [[ -z "$display_name" ]] && return 0
 
-    # Get flake URL from flake.nix
+    # Get flake URL from flake.nix — try multiple patterns
     local flake_file
     flake_file="$(config_get "flake_file")"
     local url=""
     if [[ -n "$flake_file" && -f "$flake_file" ]]; then
+      # Try direct match: name.url = "...";
       url="$(grep -oP "${display_name}\\.url\\s*=\\s*\"\\K[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
+
+      # Try block match: name = { url = "..."; };
+      if [[ -z "$url" ]]; then
+        url="$(awk -v name="$display_name" '
+          $0 ~ "^[[:space:]]*" name "[[:space:]]*=" { found=1 }
+          found && /url[[:space:]]*=/ {
+            match($0, /url[[:space:]]*=[[:space:]]*"([^"]*)"/, m)
+            if (m[1]) { print m[1]; exit }
+          }
+          found && /\}/ { found=0 }
+        ' "$flake_file" 2>/dev/null)" || true
+      fi
+
+      # Try searching all URLs for a match on the display name
+      if [[ -z "$url" ]]; then
+        url="$(grep -oP 'url\s*=\s*"\K[^"]*'"$display_name"'[^"]*' "$flake_file" 2>/dev/null | head -1)" || true
+      fi
     fi
 
     echo "Flake input: $display_name"
@@ -391,18 +447,22 @@ _list_preview() {
         echo "Repo: https://github.com/${url#github:}"
       fi
     else
-      echo "URL: (not found in flake.nix)"
+      echo "Type: Overlay / custom package"
+      echo ""
+      echo "This package is provided via an overlay"
+      echo "or a custom Nix expression, not a direct"
+      echo "flake input."
     fi
     echo ""
-    echo "Type: External flake input"
-    echo ""
-    echo "This package comes from a custom flake,"
-    echo "not from nixpkgs."
+    echo "Source: External (not from nixpkgs)"
     return 0
   fi
 
+  # Strip condition suffix like "(linux)" for nix-search-tv lookup
+  local pkg_name="${item%% (*}"
+
   # Regular nixpkgs package — use nix-search-tv
-  _search_preview "$item"
+  _search_preview "$pkg_name"
 }
 
 # cmd_list — interactive list of installed packages with actions
