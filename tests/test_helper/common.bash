@@ -62,14 +62,16 @@ create_test_flake_file() {
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     wt.url = "github:AThevon/wt";
     wt.inputs.nixpkgs.follows = "nixpkgs";
+    zigpkgs.url = "github:ziglang/zig-overlay";
+    zigpkgs.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, home-manager, wt, ... }:
+  outputs = { self, nixpkgs, home-manager, wt, zigpkgs, ... }:
     let
       mkHome = system: user: home-manager.lib.homeManagerConfiguration {
         pkgs = nixpkgs.legacyPackages.${system};
         extraSpecialArgs = {
-          inherit wt;
+          inherit wt zigpkgs;
         };
         modules = [ ./home ];
       };
