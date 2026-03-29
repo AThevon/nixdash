@@ -60,22 +60,21 @@ search_fzf() {
     fzf_args+=(--query "$query")
   fi
 
+  fzf_args+=(
+    --preview "bash '$nixdash_bin' _search-preview {3}"
+    --preview-window "right:50%:wrap"
+  )
+
   if (( multiselect )); then
     fzf_args+=(
       --multi
       --bind 'tab:toggle+down'
       --bind 'shift-tab:toggle+up'
       --bind 'ctrl-l:clear-query'
-      --header "TAB select · SHIFT-TAB deselect · CTRL-L clear · ENTER confirm"
-      --preview "printf '%s\n' 'Temporary Shell' '─────────────────' '' 'TAB         Select and move down' 'SHIFT-TAB   Deselect and move up' 'CTRL-L      Clear search query' '' 'ENTER       Launch shell' 'ESC         Cancel' '' '─────────────────' '✓ = already in your config'"
-      --preview-window "right:40%:wrap"
+      --header "TAB select · CTRL-L clear query · ENTER confirm"
     )
   else
-    fzf_args+=(
-      --header "Search Nix packages"
-      --preview "bash '$nixdash_bin' _search-preview {3}"
-      --preview-window "right:50%:wrap"
-    )
+    fzf_args+=(--header "Search Nix packages")
   fi
 
   # Check if index exists, fetch if empty

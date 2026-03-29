@@ -143,12 +143,13 @@ cmd_hub() {
     local cmd
     cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
 
+    # Launch commands as subprocesses to get a clean TTY
     case "$cmd" in
-      list)      cmd_list ;;
-      search)    cmd_search ;;
-      shell)     cmd_shell ;;
-      add-flake) cmd_add_flake ;;
-      config)    cmd_config ;;
+      list)      "$NIXDASH_BIN" list ;;
+      search)    "$NIXDASH_BIN" search ;;
+      shell)     "$NIXDASH_BIN" shell ;;
+      add-flake) "$NIXDASH_BIN" add-flake ;;
+      config)    "$NIXDASH_BIN" config ;;
     esac
   done
 }
