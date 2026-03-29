@@ -53,9 +53,6 @@ search_fzf() {
     --height=70%
     --layout=reverse
     --border
-    --header "Search Nix packages"
-    --preview "bash '$nixdash_bin' _search-preview {3}"
-    --preview-window "right:50%:wrap"
     --delimiter " "
   )
 
@@ -69,9 +66,15 @@ search_fzf() {
       --bind 'tab:toggle+down'
       --bind 'shift-tab:toggle+up'
       --bind 'ctrl-l:clear-query'
-      --header "TAB select · SHIFT-TAB deselect · CTRL-L clear search · ENTER confirm"
-      --preview "echo 'Temporary Shell'; echo '─────────────────'; echo ''; echo 'TAB         Select and move down'; echo 'SHIFT-TAB   Deselect and move up'; echo 'CTRL-L      Clear search query'; echo ''; echo 'ENTER       Launch shell'; echo 'ESC         Cancel'; echo ''; echo '─────────────────'; echo '✓ = already in your config'"
+      --header "TAB select · SHIFT-TAB deselect · CTRL-L clear · ENTER confirm"
+      --preview "printf '%s\n' 'Temporary Shell' '─────────────────' '' 'TAB         Select and move down' 'SHIFT-TAB   Deselect and move up' 'CTRL-L      Clear search query' '' 'ENTER       Launch shell' 'ESC         Cancel' '' '─────────────────' '✓ = already in your config'"
       --preview-window "right:40%:wrap"
+    )
+  else
+    fzf_args+=(
+      --header "Search Nix packages"
+      --preview "bash '$nixdash_bin' _search-preview {3}"
+      --preview-window "right:50%:wrap"
     )
   fi
 
