@@ -99,3 +99,93 @@ search_is_self() {
   local pkg="$1"
   [[ "$pkg" == "nixdash" || "$pkg" == nixdash.* ]]
 }
+
+# cmd_search [QUERY] — interactive search and install/manage packages
+cmd_search() {
+  config_ensure
+
+  local query=""
+  if [[ $# -gt 0 ]]; then
+    query="$*"
+  fi
+
+  # Run fzf search
+  local pkg
+  local fzf_args=()
+  [[ -n "$query" ]] && fzf_args+=(--query "$query")
+  pkg="$(search_fzf "${fzf_args[@]}")" || return 0
+  [[ -z "$pkg" ]] && return 0
+
+  # Self-protection
+  if search_is_self "$pkg"; then
+    ui_warn "Impossible de modifier nixdash depuis nixdash"
+    return 0
+  fi
+
+  # Check if already installed
+  if packages_is_installed "$pkg"; then
+    local display_name
+    display_name="$(packages_display_name "$pkg")"
+    local pkg_type
+    pkg_type="$(packages_type "$pkg")"
+
+    local action
+    action="$(ui_choose "« $display_name » est déjà installé :" \
+      "🗑️  Supprimer" \
+      "🌐 Voir en ligne" \
+      "❌ Annuler")" || return 0
+
+    case "$action" in
+      "🗑️  Supprimer")
+        _packages_do_remove "$pkg" "$pkg_type"
+        ;;
+      "🌐 Voir en ligne")
+        ui_open_url "https://search.nixos.org/packages?query=$display_name"
+        ;;
+      "❌ Annuler")
+        return 0
+        ;;
+    esac
+  else
+    # Not installed — add it
+    local pkg_file
+    pkg_file="$(config_get "packages_file")"
+
+    # Backup
+    local backup
+    backup="$(mktemp)"
+    cp "$pkg_file" "$backup"
+
+    # Add package
+    packages_add "$pkg"
+
+    # Show diff
+    ui_diff "$backup" "$pkg_file"
+
+    # Check auto_apply
+    local auto_apply
+    auto_apply="$(config_get "auto_apply")"
+
+    if [[ "$auto_apply" == "true" ]]; then
+      ui_info "Application automatique..."
+    else
+      if ! ui_confirm "Installer $pkg ?"; then
+        # Restore backup
+        cp "$backup" "$pkg_file"
+        _PACKAGES_CACHE=""
+        ui_warn "Annulé — fichier restauré"
+        rm -f "$backup"
+        return 1
+      fi
+    fi
+
+    rm -f "$backup"
+
+    # Run apply command
+    local apply_cmd
+    apply_cmd="$(config_get "apply_command")"
+    ui_info "Exécution : $apply_cmd"
+    eval "$apply_cmd"
+    ui_success "$pkg installé"
+  fi
+}
