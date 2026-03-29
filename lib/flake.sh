@@ -219,7 +219,152 @@ cmd_add_flake() {
 }
 
 cmd_init() {
-  echo "[stub] nixdash init — not yet implemented" >&2
+  # 1. Welcome
+  echo -e "\n${COLOR_BOLD}Bienvenue dans nixdash !${COLOR_RESET}" >&2
+  echo -e "${COLOR_DIM}Assistant de configuration initiale${COLOR_RESET}\n" >&2
+
+  # 2. Detect flake.nix
+  local flake_file=""
+  local search_dirs=("$HOME/.dotfiles" "$HOME/nixos-config" "$HOME/.config/nixos" ".")
+  for dir in "${search_dirs[@]}"; do
+    if [[ -f "$dir/flake.nix" ]]; then
+      flake_file="$(cd "$dir" && pwd)/flake.nix"
+      break
+    fi
+  done
+
+  # 3. Prompt flake file path
+  if [[ -n "$flake_file" ]]; then
+    ui_info "Fichier flake détecté : $flake_file"
+  else
+    ui_warn "Aucun flake.nix détecté automatiquement"
+  fi
+  flake_file="$(ui_input "Chemin du fichier flake.nix" "$flake_file")" || return 0
+  [[ -z "$flake_file" ]] && { ui_error "Chemin du flake requis"; return 1; }
+
+  if [[ ! -f "$flake_file" ]]; then
+    ui_error "Fichier introuvable : $flake_file"
+    return 1
+  fi
+
+  # 4. Detect packages file
+  local flake_dir
+  flake_dir="$(dirname "$flake_file")"
+  local pkg_file=""
+
+  # Try home.packages first
+  local match
+  match="$(grep -rl "home\.packages" "$flake_dir" --include="*.nix" 2>/dev/null | head -1)" || true
+  if [[ -n "$match" ]]; then
+    pkg_file="$match"
+  else
+    # 5. Try environment.systemPackages (NixOS)
+    match="$(grep -rl "environment\.systemPackages" "$flake_dir" --include="*.nix" 2>/dev/null | head -1)" || true
+    if [[ -n "$match" ]]; then
+      pkg_file="$match"
+    fi
+  fi
+
+  # 6. Prompt packages file path
+  if [[ -n "$pkg_file" ]]; then
+    ui_info "Fichier packages détecté : $pkg_file"
+  else
+    ui_warn "Aucun fichier packages détecté"
+  fi
+  pkg_file="$(ui_input "Chemin du fichier packages" "$pkg_file")" || return 0
+  [[ -z "$pkg_file" ]] && { ui_error "Chemin du fichier packages requis"; return 1; }
+
+  if [[ ! -f "$pkg_file" ]]; then
+    ui_error "Fichier introuvable : $pkg_file"
+    return 1
+  fi
+
+  # 7. Count packages
+  local tmp_config_dir tmp_config_file
+  tmp_config_dir="$(mktemp -d)"
+  tmp_config_file="$tmp_config_dir/config.toml"
+  # Temporarily set config to count packages
+  local orig_config_dir="$CONFIG_DIR" orig_config_file="$CONFIG_FILE"
+  CONFIG_DIR="$tmp_config_dir"
+  CONFIG_FILE="$tmp_config_file"
+  config_set "packages_file" "$pkg_file"
+  config_set "flake_file" "$flake_file"
+  config_set "apply_command" "echo placeholder"
+  _packages_parse
+  local pkg_count=0
+  if [[ -n "$_PACKAGES_CACHE" ]]; then
+    pkg_count="$(echo "$_PACKAGES_CACHE" | wc -l)"
+  fi
+  CONFIG_DIR="$orig_config_dir"
+  CONFIG_FILE="$orig_config_file"
+  rm -rf "$tmp_config_dir"
+  ui_info "$pkg_count packages détectés"
+
+  # 8. Detect apply command
+  local apply_cmd=""
+  if grep -q "home-manager\|homeManagerConfiguration\|homeConfigurations" "$flake_file" 2>/dev/null; then
+    apply_cmd="home-manager switch --flake $(dirname "$flake_file")"
+  elif grep -q "nixosConfigurations\|nixos-rebuild" "$flake_file" 2>/dev/null; then
+    apply_cmd="sudo nixos-rebuild switch --flake $(dirname "$flake_file")"
+  fi
+
+  # 9. Prompt apply command
+  if [[ -n "$apply_cmd" ]]; then
+    ui_info "Commande d'apply détectée : $apply_cmd"
+  else
+    ui_warn "Commande d'apply non détectée"
+  fi
+  apply_cmd="$(ui_input "Commande d'apply" "$apply_cmd")" || return 0
+  [[ -z "$apply_cmd" ]] && { ui_error "Commande d'apply requise"; return 1; }
+
+  # 10. Auto apply = false
+  local auto_apply="false"
+
+  # 11. Analyze flake structure
+  local structure_info=""
+  # Temporarily configure to analyze
+  local save_dir="$CONFIG_DIR" save_file="$CONFIG_FILE"
+  local analysis_dir
+  analysis_dir="$(mktemp -d)"
+  CONFIG_DIR="$analysis_dir"
+  CONFIG_FILE="$analysis_dir/config.toml"
+  config_set "flake_file" "$flake_file"
+  local inputs_end esa_line
+  inputs_end="$(flake_find_inputs_end)" || true
+  esa_line="$(flake_find_extra_special_args)" || true
+  CONFIG_DIR="$save_dir"
+  CONFIG_FILE="$save_file"
+  rm -rf "$analysis_dir"
+
+  if [[ -n "$inputs_end" && -n "$esa_line" ]]; then
+    structure_info="complète"
+    ui_success "Structure flake reconnue (inputs end: L${inputs_end}, extraSpecialArgs: L${esa_line})"
+  else
+    structure_info="partielle"
+    ui_warn "Structure flake partiellement reconnue — add-flake montrera les instructions manuelles"
+  fi
+
+  # 12. Check nix-search-tv
+  if command -v nix-search-tv &>/dev/null; then
+    ui_success "nix-search-tv disponible"
+  else
+    ui_warn "nix-search-tv non trouvé — la recherche ne fonctionnera pas"
+    ui_dim "Installez-le : nix profile install github:peterldowns/nix-search-tv"
+  fi
+
+  # 13. Save config
+  config_set "flake_file" "$flake_file"
+  config_set "packages_file" "$pkg_file"
+  config_set "apply_command" "$apply_cmd"
+  config_set "auto_apply" "$auto_apply"
+
+  echo >&2
+  ui_success "Configuration sauvegardée dans $CONFIG_FILE"
+  echo -e "  ${COLOR_DIM}flake_file    = $flake_file${COLOR_RESET}" >&2
+  echo -e "  ${COLOR_DIM}packages_file = $pkg_file${COLOR_RESET}" >&2
+  echo -e "  ${COLOR_DIM}apply_command = $apply_cmd${COLOR_RESET}" >&2
+  echo -e "  ${COLOR_DIM}auto_apply    = $auto_apply${COLOR_RESET}" >&2
+  echo -e "\n${COLOR_GREEN}nixdash est prêt !${COLOR_RESET} Lancez ${COLOR_BOLD}nixdash${COLOR_RESET} pour commencer.\n" >&2
 }
 
 cmd_config() {
