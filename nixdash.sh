@@ -17,6 +17,60 @@ source "$LIB_DIR/search.sh"
 source "$LIB_DIR/shell.sh"
 source "$LIB_DIR/flake.sh"
 
+# ── Hub ────────────────────────────────────────────────────────
+cmd_hub() {
+  # If not initialized, offer to run init
+  if ! config_is_initialized; then
+    echo -e "${COLOR_BOLD}nixdash${COLOR_RESET} n'est pas encore configuré." >&2
+    if ui_confirm "Lancer la configuration initiale ?"; then
+      cmd_init
+      # Re-check after init
+      config_is_initialized || return 0
+    else
+      return 0
+    fi
+  fi
+
+  while true; do
+    # Count packages
+    _packages_parse
+    local pkg_count=0
+    if [[ -n "$_PACKAGES_CACHE" ]]; then
+      pkg_count="$(echo "$_PACKAGES_CACHE" | wc -l)"
+    fi
+
+    local choice
+    choice="$(ui_choose "nixdash" \
+      "📦 Mes packages ($pkg_count)" \
+      "🔍 Rechercher un package" \
+      "🐚 Shell temporaire" \
+      "📥 Ajouter un flake externe" \
+      "⚙️  Configuration" \
+      "❌ Quitter")" || return 0
+
+    case "$choice" in
+      "📦 Mes packages"*)
+        cmd_list
+        ;;
+      "🔍 Rechercher"*)
+        cmd_search
+        ;;
+      "🐚 Shell"*)
+        cmd_shell
+        ;;
+      "📥 Ajouter"*)
+        cmd_add_flake
+        ;;
+      "⚙️  Configuration"*)
+        cmd_config
+        ;;
+      "❌ Quitter")
+        return 0
+        ;;
+    esac
+  done
+}
+
 # ── Usage ───────────────────────────────────────────────────────
 usage() {
   cat >&2 <<EOF
@@ -25,6 +79,7 @@ nixdash $VERSION — TUI for managing Nix packages
 Usage: nixdash <command> [options]
 
 Commands:
+  hub         Interactive menu (default)
   list        List installed packages
   search      Search for packages
   shell       Enter a temporary shell with packages
@@ -46,8 +101,11 @@ main() {
     -v|--version)
       echo "nixdash $VERSION"
       ;;
-    -h|--help|"")
+    -h|--help)
       usage
+      ;;
+    ""|hub)
+      cmd_hub
       ;;
     list)
       shift; cmd_list "$@"
