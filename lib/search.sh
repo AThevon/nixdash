@@ -206,6 +206,8 @@ cmd_search() {
 
   local pkg_list_file
   pkg_list_file="$(mktemp)"
+
+  ui_info "Loading packages..." >&2
   nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
     BEGIN {
       n = split(installed, arr, "\n")
@@ -217,6 +219,15 @@ cmd_search() {
       else printf "○ %s\n", $0
     }
   ' > "$pkg_list_file"
+
+  # Verify we got packages
+  local line_count
+  line_count="$(wc -l < "$pkg_list_file")"
+  if [[ "$line_count" -lt 10 ]]; then
+    ui_error "Failed to load package list ($line_count entries)"
+    rm -f "$pkg_list_file"
+    return 1
+  fi
 
   local tmpfile
   tmpfile="$(mktemp)"
