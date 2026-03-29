@@ -32,55 +32,55 @@ _hub_preview() {
   local key="$1"
   case "$key" in
     list)
-      echo -e "${COLOR_VIOLET}◈${COLOR_RESET}  Mes packages"
+      echo -e "${COLOR_VIOLET}◈${COLOR_RESET}  My packages"
       echo ""
-      echo "Affiche tous les packages installés dans votre"
-      echo "configuration Nix avec une interface fzf."
+      echo "Displays all packages installed in your"
+      echo "Nix configuration with an fzf interface."
       echo ""
-      echo "• Packages nixpkgs, flake inputs, conditionnels"
-      echo "• Preview avec description et version"
-      echo "• Actions : supprimer, voir en ligne"
+      echo "• nixpkgs, flake inputs, conditional packages"
+      echo "• Preview with description and version"
+      echo "• Actions: remove, view online"
       ;;
     search)
-      echo -e "${COLOR_VIOLET}⊕${COLOR_RESET}  Rechercher un package"
+      echo -e "${COLOR_VIOLET}⊕${COLOR_RESET}  Search packages"
       echo ""
-      echo "Recherche en temps réel dans nixpkgs via"
-      echo "nix-search-tv avec fuzzy matching."
+      echo "Real-time search in nixpkgs via"
+      echo "nix-search-tv with fuzzy matching."
       echo ""
-      echo "• Indicateur ✓ pour les packages déjà installés"
-      echo "• Sélection → install dans votre config"
-      echo "• Preview : description, version, homepage"
+      echo "• ✓ indicator for already installed packages"
+      echo "• Selection → install to your config"
+      echo "• Preview: description, version, homepage"
       ;;
     shell)
-      echo -e "${COLOR_VIOLET}»${COLOR_RESET}  Shell temporaire"
+      echo -e "${COLOR_VIOLET}»${COLOR_RESET}  Temporary shell"
       echo ""
-      echo "Crée un shell Nix temporaire avec les packages"
-      echo "de votre choix (multiselect)."
+      echo "Creates a temporary Nix shell with the"
+      echo "packages of your choice (multiselect)."
       echo ""
-      echo "• Sélectionnez plusieurs packages avec TAB"
-      echo "• Le shell disparaît à la fermeture (exit)"
-      echo "• Aucune modification de votre config"
+      echo "• Select multiple packages with TAB"
+      echo "• Shell disappears on exit"
+      echo "• No changes to your config"
       ;;
     add-flake)
-      echo -e "${COLOR_VIOLET}⊞${COLOR_RESET}  Ajouter un flake externe"
+      echo -e "${COLOR_VIOLET}⊞${COLOR_RESET}  Add external flake"
       echo ""
-      echo "Workflow guidé pour ajouter un flake input"
-      echo "externe à votre configuration."
+      echo "Guided workflow to add an external flake"
+      echo "input to your configuration."
       echo ""
-      echo "• Résolution automatique de l'URL"
-      echo "• Édite flake.nix + packages.nix"
-      echo "• Preview des modifications avant apply"
+      echo "• Automatic URL resolution"
+      echo "• Edits flake.nix + packages.nix"
+      echo "• Preview changes before applying"
       ;;
     config)
-      echo -e "${COLOR_DIM}⚙${COLOR_RESET}  Configuration"
+      echo -e "${COLOR_DIM}⚙${COLOR_RESET}  Settings"
       echo ""
-      echo "Modifier les réglages de nixdash :"
+      echo "Edit nixdash settings:"
       echo ""
-      echo "• Fichier packages"
-      echo "• Commande d'apply"
-      echo "• Fichier flake"
-      echo "• Toggle apply automatique"
-      echo "• Mettre à jour l'index nix-search-tv"
+      echo "• Packages file"
+      echo "• Apply command"
+      echo "• Flake file"
+      echo "• Toggle auto apply"
+      echo "• Update nix-search-tv index"
       ;;
   esac
 }
@@ -89,8 +89,8 @@ _hub_preview() {
 cmd_hub() {
   # If not initialized, offer to run init
   if ! config_is_initialized; then
-    echo -e "${COLOR_BOLD}nixdash${COLOR_RESET} n'est pas encore configuré." >&2
-    if ui_confirm "Lancer la configuration initiale ?"; then
+    echo -e "${COLOR_BOLD}nixdash${COLOR_RESET} is not configured yet." >&2
+    if ui_confirm "Run initial setup?"; then
       cmd_init
       config_is_initialized || return 0
     else
@@ -116,11 +116,11 @@ cmd_hub() {
 
     local choice
     choice="$(printf '%s\n' \
-      "list     │ ${COLOR_VIOLET}◈${COLOR_RESET}  Mes packages ($pkg_count)" \
-      "search   │ ${COLOR_VIOLET}⊕${COLOR_RESET}  Rechercher un package" \
-      "shell    │ ${COLOR_VIOLET}»${COLOR_RESET}  Shell temporaire" \
-      "add-flake│ ${COLOR_VIOLET}⊞${COLOR_RESET}  Ajouter un flake externe" \
-      "config   │ ${COLOR_DIM}⚙${COLOR_RESET}  Configuration" \
+      "list     │ ${COLOR_VIOLET}◈${COLOR_RESET}  My packages ($pkg_count)" \
+      "search   │ ${COLOR_VIOLET}⊕${COLOR_RESET}  Search packages" \
+      "shell    │ ${COLOR_VIOLET}»${COLOR_RESET}  Temporary shell" \
+      "add-flake│ ${COLOR_VIOLET}⊞${COLOR_RESET}  Add external flake" \
+      "config   │ ${COLOR_DIM}⚙${COLOR_RESET}  Settings" \
     | fzf \
       --ansi \
       --no-sort \

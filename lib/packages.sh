@@ -339,13 +339,13 @@ _packages_do_remove() {
   skip_confirmation="$(config_get "skip_confirmation")"
 
   if [[ "$skip_confirmation" == "true" ]]; then
-    ui_info "Application automatique..."
+    ui_info "Auto-applying..."
   else
-    if ! ui_confirm "Appliquer les changements ?"; then
+    if ! ui_confirm "Apply changes?"; then
       # Restore backup
       cp "$backup" "$pkg_file"
       _PACKAGES_CACHE=""
-      ui_warn "Annulé — fichier restauré"
+      ui_warn "Cancelled — file restored"
       rm -f "$backup"
       return 1
     fi
@@ -356,9 +356,9 @@ _packages_do_remove() {
   # Run apply command
   local apply_cmd
   apply_cmd="$(config_get "apply_command")"
-  ui_info "Exécution : $apply_cmd"
+  ui_info "Running: $apply_cmd"
   eval "$apply_cmd"
-  ui_success "Changements appliqués"
+  ui_success "Changes applied"
 }
 
 # cmd_list — interactive list of installed packages with actions
@@ -366,7 +366,7 @@ cmd_list() {
   config_ensure
   _packages_parse
 
-  [[ -z "$_PACKAGES_CACHE" ]] && { ui_warn "Aucun package trouvé"; return 0; }
+  [[ -z "$_PACKAGES_CACHE" ]] && { ui_warn "No packages found"; return 0; }
 
   # Build fzf input
   local fzf_input=""
@@ -394,7 +394,7 @@ cmd_list() {
     --height=70% \
     --layout=reverse \
     --border \
-    --header "Packages installés" \
+    --header "Installed packages" \
     --preview "bash '$nixdash_bin' _search-preview {1}" \
     --preview-window "right:50%:wrap")" || return 0
 
@@ -420,22 +420,22 @@ cmd_list() {
 
   # Self-protection
   if search_is_self "$full_name"; then
-    ui_warn "Impossible de modifier nixdash depuis nixdash"
+    ui_warn "Cannot modify nixdash from within nixdash"
     return 0
   fi
 
   # Action menu
   local action
-  action="$(ui_choose "Action pour $display_name :" \
-    "✕  Supprimer" \
-    "◎  Voir en ligne" \
-    "↩  Annuler")" || return 0
+  action="$(ui_choose "Action for $display_name:" \
+    "✕  Remove" \
+    "◎  View online" \
+    "↩  Cancel")" || return 0
 
   case "$action" in
-    *"Supprimer")
+    *"Remove")
       _packages_do_remove "$full_name" "$pkg_type"
       ;;
-    *"Voir en ligne")
+    *"View online")
       if [[ "$pkg_type" == "flake" ]]; then
         # Try to get URL from flake.nix
         local flake_file
@@ -451,13 +451,13 @@ cmd_list() {
           gh_url="${gh_url%%/*([^/])}"
           ui_open_url "$gh_url"
         else
-          ui_warn "URL introuvable pour $prefix"
+          ui_warn "URL not found for $prefix"
         fi
       else
         ui_open_url "https://search.nixos.org/packages?query=$display_name"
       fi
       ;;
-    *"Annuler")
+    *"Cancel")
       return 0
       ;;
   esac

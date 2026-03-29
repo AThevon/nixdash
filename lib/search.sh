@@ -18,7 +18,7 @@ _search_preview() {
   info="$(nix-search-tv info "$pkg" 2>/dev/null)" || true
 
   if [[ -z "$info" ]]; then
-    echo -e "${COLOR_RED}✗${COLOR_RESET} Package '$pkg' introuvable dans l'index nix-search-tv"
+    echo -e "${COLOR_RED}✗${COLOR_RESET} Package '$pkg' not found in nix-search-tv index"
     return 0
   fi
 
@@ -51,7 +51,7 @@ search_fzf() {
     --height=70%
     --layout=reverse
     --border
-    --header "Recherche de packages Nix"
+    --header "Search Nix packages"
     --preview "bash '$nixdash_bin' _search-preview {2}"
     --preview-window "right:50%:wrap"
     --delimiter " "
@@ -62,7 +62,8 @@ search_fzf() {
   fi
 
   if (( multiselect )); then
-    fzf_args+=(--multi)
+    fzf_args+=(--multi --bind 'ctrl-a:toggle-all')
+    fzf_args[5]="TAB select · ENTER confirm"
   fi
 
   # Pipe nix-search-tv through awk to add ✓ markers for installed packages
@@ -121,7 +122,7 @@ cmd_search() {
 
   # Self-protection
   if search_is_self "$pkg"; then
-    ui_warn "Impossible de modifier nixdash depuis nixdash"
+    ui_warn "Cannot modify nixdash from within nixdash"
     return 0
   fi
 
@@ -133,32 +134,32 @@ cmd_search() {
     pkg_type="$(packages_type "$pkg")"
 
     local action
-    action="$(ui_choose "« $display_name » est déjà installé :" \
-      "✕  Supprimer" \
-      "◎  Voir en ligne" \
-      "↩  Annuler")" || return 0
+    action="$(ui_choose "\"$display_name\" is already installed:" \
+      "✕  Remove" \
+      "◎  View online" \
+      "↩  Cancel")" || return 0
 
     case "$action" in
-      *"Supprimer")
+      *"Remove")
         _packages_do_remove "$pkg" "$pkg_type"
         ;;
-      *"Voir en ligne")
+      *"View online")
         ui_open_url "https://search.nixos.org/packages?query=$display_name"
         ;;
-      *"Annuler")
+      *"Cancel")
         return 0
         ;;
     esac
   else
     # Not installed — choose action
     local action
-    action="$(ui_choose "$pkg :" \
-      "⊕  Installer" \
-      "»  Tester dans un shell" \
-      "↩  Annuler")" || return 0
+    action="$(ui_choose "$pkg:" \
+      "⊕  Install" \
+      "»  Test in a shell" \
+      "↩  Cancel")" || return 0
 
     case "$action" in
-      *"Installer")
+      *"Install")
         local pkg_file
         pkg_file="$(config_get "packages_file")"
 
@@ -173,12 +174,12 @@ cmd_search() {
         skip_confirmation="$(config_get "skip_confirmation")"
 
         if [[ "$skip_confirmation" == "true" ]]; then
-          ui_info "Application automatique..."
+          ui_info "Auto-applying..."
         else
-          if ! ui_confirm "Installer $pkg ?"; then
+          if ! ui_confirm "Install $pkg?"; then
             cp "$backup" "$pkg_file"
             _PACKAGES_CACHE=""
-            ui_warn "Annulé — fichier restauré"
+            ui_warn "Cancelled — file restored"
             rm -f "$backup"
             return 1
           fi
@@ -188,16 +189,16 @@ cmd_search() {
 
         local apply_cmd
         apply_cmd="$(config_get "apply_command")"
-        ui_info "Exécution : $apply_cmd"
+        ui_info "Running: $apply_cmd"
         eval "$apply_cmd"
-        ui_success "$pkg installé"
+        ui_success "$pkg installed"
         ;;
-      *"Tester"*)
-        ui_info "Lancement d'un shell temporaire avec $pkg..."
-        ui_dim "Tapez 'exit' pour quitter le shell temporaire."
+      *"Test"*)
+        ui_info "Launching temporary shell with $pkg..."
+        ui_dim "Type 'exit' to leave the temporary shell."
         nix shell "nixpkgs#$pkg"
         ;;
-      *"Annuler")
+      *"Cancel")
         return 0
         ;;
     esac

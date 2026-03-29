@@ -149,7 +149,7 @@ config_is_initialized() {
 # config_ensure — exits with message if not initialized
 config_ensure() {
   if ! config_is_initialized; then
-    echo "nixdash n'est pas configuré. Lancez 'nixdash init' d'abord." >&2
+    echo "nixdash is not configured. Run 'nixdash init' first." >&2
     exit 1
   fi
 }

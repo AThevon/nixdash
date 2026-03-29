@@ -114,57 +114,57 @@ cmd_add_flake() {
 
   # 1. Prompt URL
   local url
-  url="$(ui_input "URL du flake (ex: github:user/repo)")" || return 0
-  [[ -z "$url" ]] && { ui_error "URL requise"; return 1; }
+  url="$(ui_input "Flake URL (e.g. github:user/repo)")" || return 0
+  [[ -z "$url" ]] && { ui_error "URL required"; return 1; }
 
   # 2. Validate with nix flake metadata
-  if ! ui_spin "Validation du flake..." nix flake metadata "$url" --no-write-lock-file; then
-    ui_error "Flake invalide ou inaccessible : $url"
+  if ! ui_spin "Validating flake..." nix flake metadata "$url" --no-write-lock-file; then
+    ui_error "Invalid or unreachable flake: $url"
     return 1
   fi
-  ui_success "Flake valide"
+  ui_success "Flake is valid"
 
   # 3. Prompt input name (auto-suggest from URL)
   local suggested_name
   suggested_name="${url##*/}"
   suggested_name="${suggested_name%%#*}"
   local input_name
-  input_name="$(ui_input "Nom de l'input" "$suggested_name")" || return 0
-  [[ -z "$input_name" ]] && { ui_error "Nom d'input requis"; return 1; }
+  input_name="$(ui_input "Input name" "$suggested_name")" || return 0
+  [[ -z "$input_name" ]] && { ui_error "Input name required"; return 1; }
 
   # 4. Prompt package attribute
   local default_attr="packages.\${system}.default"
   local pkg_attr
-  pkg_attr="$(ui_input "Attribut du package" "$default_attr")" || return 0
+  pkg_attr="$(ui_input "Package attribute" "$default_attr")" || return 0
   [[ -z "$pkg_attr" ]] && pkg_attr="$default_attr"
 
   # Full package reference for packages.nix
   local full_pkg="${input_name}.${pkg_attr}"
 
   # 5. Preview changes
-  echo -e "\n${COLOR_BOLD}Résumé des modifications :${COLOR_RESET}" >&2
-  echo -e "  ${COLOR_CYAN}Input :${COLOR_RESET} ${input_name}.url = \"${url}\"" >&2
-  echo -e "  ${COLOR_CYAN}Output arg :${COLOR_RESET} ${input_name} ajouté aux outputs" >&2
-  echo -e "  ${COLOR_CYAN}Inherit :${COLOR_RESET} ${input_name} ajouté à extraSpecialArgs" >&2
-  echo -e "  ${COLOR_CYAN}Package :${COLOR_RESET} ${full_pkg} ajouté aux packages" >&2
+  echo -e "\n${COLOR_BOLD}Summary of changes:${COLOR_RESET}" >&2
+  echo -e "  ${COLOR_CYAN}Input:${COLOR_RESET} ${input_name}.url = \"${url}\"" >&2
+  echo -e "  ${COLOR_CYAN}Output arg:${COLOR_RESET} ${input_name} added to outputs" >&2
+  echo -e "  ${COLOR_CYAN}Inherit:${COLOR_RESET} ${input_name} added to extraSpecialArgs" >&2
+  echo -e "  ${COLOR_CYAN}Package:${COLOR_RESET} ${full_pkg} added to packages" >&2
   echo >&2
 
   # 6. Choose action
   local action
-  action="$(ui_choose "$input_name :" \
-    "⊕  Installer dans la config" \
-    "»  Tester dans un shell d'abord" \
-    "↩  Annuler")" || return 0
+  action="$(ui_choose "$input_name:" \
+    "⊕  Install to config" \
+    "»  Test in a shell first" \
+    "↩  Cancel")" || return 0
 
   case "$action" in
-    *"Tester"*)
-      ui_info "Lancement d'un shell temporaire avec $url..."
-      ui_dim "Tapez 'exit' pour quitter le shell temporaire."
+    *"Test"*)
+      ui_info "Launching temporary shell with $url..."
+      ui_dim "Type 'exit' to leave the temporary shell."
       nix shell "$url"
       return 0
       ;;
-    *"Annuler")
-      ui_warn "Annulé"
+    *"Cancel")
+      ui_warn "Cancelled"
       return 0
       ;;
   esac
@@ -180,14 +180,14 @@ cmd_add_flake() {
   esa_line="$(flake_find_extra_special_args)"
 
   if [[ -z "$inputs_end" || -z "$esa_line" ]]; then
-    ui_warn "Structure du flake.nix non reconnue automatiquement."
-    echo -e "\n${COLOR_BOLD}Instructions manuelles :${COLOR_RESET}" >&2
-    echo -e "  1. Ajouter dans inputs :" >&2
+    ui_warn "flake.nix structure not automatically recognized."
+    echo -e "\n${COLOR_BOLD}Manual instructions:${COLOR_RESET}" >&2
+    echo -e "  1. Add to inputs:" >&2
     echo -e "     ${COLOR_GREEN}${input_name}.url = \"${url}\";${COLOR_RESET}" >&2
     echo -e "     ${COLOR_GREEN}${input_name}.inputs.nixpkgs.follows = \"nixpkgs\";${COLOR_RESET}" >&2
-    echo -e "  2. Ajouter ${COLOR_GREEN}${input_name}${COLOR_RESET} aux arguments de outputs" >&2
-    echo -e "  3. Ajouter ${COLOR_GREEN}inherit ${input_name};${COLOR_RESET} dans extraSpecialArgs" >&2
-    echo -e "  4. Ajouter ${COLOR_GREEN}${full_pkg}${COLOR_RESET} dans votre fichier packages" >&2
+    echo -e "  2. Add ${COLOR_GREEN}${input_name}${COLOR_RESET} to outputs arguments" >&2
+    echo -e "  3. Add ${COLOR_GREEN}inherit ${input_name};${COLOR_RESET} to extraSpecialArgs" >&2
+    echo -e "  4. Add ${COLOR_GREEN}${full_pkg}${COLOR_RESET} to your packages file" >&2
     return 0
   fi
 
@@ -207,9 +207,9 @@ cmd_add_flake() {
   packages_add "$full_pkg"
 
   # 9. Show diffs
-  ui_info "Modifications dans flake.nix :"
+  ui_info "Changes in flake.nix:"
   ui_diff "$flake_backup" "$flake_file"
-  ui_info "Modifications dans $(basename "$pkg_file") :"
+  ui_info "Changes in $(basename "$pkg_file"):"
   ui_diff "$pkg_backup" "$pkg_file"
 
   rm -f "$flake_backup" "$pkg_backup"
@@ -219,25 +219,25 @@ cmd_add_flake() {
   skip_confirmation="$(config_get "skip_confirmation")"
 
   if [[ "$skip_confirmation" == "true" ]]; then
-    ui_info "Application automatique..."
+    ui_info "Auto-applying..."
   else
-    if ! ui_confirm "Appliquer les changements ?"; then
-      ui_warn "Modifications écrites mais non appliquées"
+    if ! ui_confirm "Apply changes?"; then
+      ui_warn "Changes written but not applied"
       return 0
     fi
   fi
 
   local apply_cmd
   apply_cmd="$(config_get "apply_command")"
-  ui_info "Exécution : $apply_cmd"
+  ui_info "Running: $apply_cmd"
   eval "$apply_cmd"
-  ui_success "Flake ${input_name} ajouté et appliqué"
+  ui_success "Flake ${input_name} added and applied"
 }
 
 cmd_init() {
   # 1. Welcome
-  echo -e "\n${COLOR_BOLD}Bienvenue dans nixdash !${COLOR_RESET}" >&2
-  echo -e "${COLOR_DIM}Assistant de configuration initiale${COLOR_RESET}\n" >&2
+  echo -e "\n${COLOR_BOLD}Welcome to nixdash!${COLOR_RESET}" >&2
+  echo -e "${COLOR_DIM}Initial setup wizard${COLOR_RESET}\n" >&2
 
   # 2. Detect flake.nix
   local flake_file=""
@@ -251,15 +251,15 @@ cmd_init() {
 
   # 3. Prompt flake file path
   if [[ -n "$flake_file" ]]; then
-    ui_info "Fichier flake détecté : $flake_file"
+    ui_info "Flake file detected: $flake_file"
   else
-    ui_warn "Aucun flake.nix détecté automatiquement"
+    ui_warn "No flake.nix detected automatically"
   fi
-  flake_file="$(ui_input "Chemin du fichier flake.nix" "$flake_file")" || return 0
-  [[ -z "$flake_file" ]] && { ui_error "Chemin du flake requis"; return 1; }
+  flake_file="$(ui_input "Path to flake.nix" "$flake_file")" || return 0
+  [[ -z "$flake_file" ]] && { ui_error "Flake path required"; return 1; }
 
   if [[ ! -f "$flake_file" ]]; then
-    ui_error "Fichier introuvable : $flake_file"
+    ui_error "File not found: $flake_file"
     return 1
   fi
 
@@ -283,15 +283,15 @@ cmd_init() {
 
   # 6. Prompt packages file path
   if [[ -n "$pkg_file" ]]; then
-    ui_info "Fichier packages détecté : $pkg_file"
+    ui_info "Packages file detected: $pkg_file"
   else
-    ui_warn "Aucun fichier packages détecté"
+    ui_warn "No packages file detected"
   fi
-  pkg_file="$(ui_input "Chemin du fichier packages" "$pkg_file")" || return 0
-  [[ -z "$pkg_file" ]] && { ui_error "Chemin du fichier packages requis"; return 1; }
+  pkg_file="$(ui_input "Path to packages file" "$pkg_file")" || return 0
+  [[ -z "$pkg_file" ]] && { ui_error "Packages file path required"; return 1; }
 
   if [[ ! -f "$pkg_file" ]]; then
-    ui_error "Fichier introuvable : $pkg_file"
+    ui_error "File not found: $pkg_file"
     return 1
   fi
 
@@ -314,7 +314,7 @@ cmd_init() {
   CONFIG_DIR="$orig_config_dir"
   CONFIG_FILE="$orig_config_file"
   rm -rf "$tmp_config_dir"
-  ui_info "$pkg_count packages détectés"
+  ui_info "$pkg_count packages detected"
 
   # 8. Detect apply command
   local apply_cmd=""
@@ -326,12 +326,12 @@ cmd_init() {
 
   # 9. Prompt apply command
   if [[ -n "$apply_cmd" ]]; then
-    ui_info "Commande d'apply détectée : $apply_cmd"
+    ui_info "Apply command detected: $apply_cmd"
   else
-    ui_warn "Commande d'apply non détectée"
+    ui_warn "Apply command not detected"
   fi
-  apply_cmd="$(ui_input "Commande d'apply" "$apply_cmd")" || return 0
-  [[ -z "$apply_cmd" ]] && { ui_error "Commande d'apply requise"; return 1; }
+  apply_cmd="$(ui_input "Apply command" "$apply_cmd")" || return 0
+  [[ -z "$apply_cmd" ]] && { ui_error "Apply command required"; return 1; }
 
   # 10. Auto apply = false
   local skip_confirmation="false"
@@ -353,19 +353,19 @@ cmd_init() {
   rm -rf "$analysis_dir"
 
   if [[ -n "$inputs_end" && -n "$esa_line" ]]; then
-    structure_info="complète"
-    ui_success "Structure flake reconnue (inputs end: L${inputs_end}, extraSpecialArgs: L${esa_line})"
+    structure_info="complete"
+    ui_success "Flake structure recognized (inputs end: L${inputs_end}, extraSpecialArgs: L${esa_line})"
   else
-    structure_info="partielle"
-    ui_warn "Structure flake partiellement reconnue — add-flake montrera les instructions manuelles"
+    structure_info="partial"
+    ui_warn "Flake structure partially recognized — add-flake will show manual instructions"
   fi
 
   # 12. Check nix-search-tv
   if command -v nix-search-tv &>/dev/null; then
-    ui_success "nix-search-tv disponible"
+    ui_success "nix-search-tv available"
   else
-    ui_warn "nix-search-tv non trouvé — la recherche ne fonctionnera pas"
-    ui_dim "Installez-le : nix profile install github:peterldowns/nix-search-tv"
+    ui_warn "nix-search-tv not found — search will not work"
+    ui_dim "Install it: nix profile install github:peterldowns/nix-search-tv"
   fi
 
   # 13. Save config
@@ -375,73 +375,73 @@ cmd_init() {
   config_set "skip_confirmation" "$skip_confirmation"
 
   echo >&2
-  ui_success "Configuration sauvegardée dans $CONFIG_FILE"
+  ui_success "Configuration saved to $CONFIG_FILE"
   echo -e "  ${COLOR_DIM}flake_file    = $flake_file${COLOR_RESET}" >&2
   echo -e "  ${COLOR_DIM}packages_file = $pkg_file${COLOR_RESET}" >&2
   echo -e "  ${COLOR_DIM}apply_command = $apply_cmd${COLOR_RESET}" >&2
   echo -e "  ${COLOR_DIM}skip_confirmation    = $skip_confirmation${COLOR_RESET}" >&2
-  echo -e "\n${COLOR_GREEN}nixdash est prêt !${COLOR_RESET} Lancez ${COLOR_BOLD}nixdash${COLOR_RESET} pour commencer.\n" >&2
+  echo -e "\n${COLOR_GREEN}nixdash is ready!${COLOR_RESET} Run ${COLOR_BOLD}nixdash${COLOR_RESET} to get started.\n" >&2
 }
 
 _config_preview() {
   local key="$1"
   case "$key" in
     packages_file)
-      echo -e "${COLOR_VIOLET}▪${COLOR_RESET}  Fichier packages"
+      echo -e "${COLOR_VIOLET}▪${COLOR_RESET}  Packages file"
       echo ""
-      echo "Chemin vers le fichier .nix contenant"
-      echo "la liste home.packages."
+      echo "Path to the .nix file containing"
+      echo "the home.packages list."
       echo ""
-      echo "nixdash lit et modifie ce fichier pour"
-      echo "ajouter/supprimer des packages."
+      echo "nixdash reads and modifies this file to"
+      echo "add/remove packages."
       ;;
     apply_command)
-      echo -e "${COLOR_VIOLET}▸${COLOR_RESET}  Commande d'apply"
+      echo -e "${COLOR_VIOLET}▸${COLOR_RESET}  Apply command"
       echo ""
-      echo "Commande exécutée après chaque modification"
-      echo "de packages (ajout ou suppression)."
+      echo "Command run after each package change"
+      echo "(add or remove)."
       echo ""
-      echo "Exemples :"
+      echo "Examples:"
       echo "  home-manager switch --flake ~/.dotfiles"
       echo "  sudo nixos-rebuild switch --flake ."
       ;;
     flake_file)
-      echo -e "${COLOR_VIOLET}◈${COLOR_RESET}  Fichier flake"
+      echo -e "${COLOR_VIOLET}◈${COLOR_RESET}  Flake file"
       echo ""
-      echo "Chemin vers flake.nix."
+      echo "Path to flake.nix."
       echo ""
-      echo "Utilisé pour ajouter des flake inputs"
-      echo "et détecter les packages externes."
+      echo "Used to add flake inputs and"
+      echo "detect external packages."
       ;;
     skip_confirmation)
-      echo -e "${COLOR_GREEN}◉${COLOR_RESET}  Passer la confirmation"
+      echo -e "${COLOR_GREEN}◉${COLOR_RESET}  Skip confirmation"
       echo ""
-      echo "Si activé, nixdash applique les changements"
-      echo "immédiatement sans demander confirmation."
+      echo "When enabled, nixdash applies changes"
+      echo "immediately without asking for confirmation."
       echo ""
-      echo "Si désactivé, un diff est affiché et une"
-      echo "confirmation est demandée avant d'appliquer."
+      echo "When disabled, a diff is shown and"
+      echo "confirmation is required before applying."
       ;;
     update_index)
-      echo -e "${COLOR_VIOLET}↻${COLOR_RESET}  Mettre à jour l'index"
+      echo -e "${COLOR_VIOLET}↻${COLOR_RESET}  Update index"
       echo ""
-      echo "Télécharge la dernière version de l'index"
-      echo "nix-search-tv pour la recherche de packages."
+      echo "Downloads the latest nix-search-tv index"
+      echo "for package search."
       echo ""
-      echo "À faire régulièrement pour avoir les"
-      echo "dernières versions de nixpkgs."
+      echo "Run regularly to get the latest"
+      echo "nixpkgs versions."
       ;;
     redetect)
-      echo -e "${COLOR_VIOLET}⟳${COLOR_RESET}  Relancer la détection"
+      echo -e "${COLOR_VIOLET}⟳${COLOR_RESET}  Re-run detection"
       echo ""
-      echo "Relance l'assistant de configuration"
-      echo "initiale (nixdash init)."
+      echo "Restarts the initial setup wizard"
+      echo "(nixdash init)."
       echo ""
-      echo "Utile si vous avez déplacé vos fichiers"
-      echo "ou changé de configuration Nix."
+      echo "Useful if you moved your files or"
+      echo "changed your Nix configuration."
       ;;
     back)
-      echo "Retour au hub"
+      echo "Back to hub"
       ;;
   esac
 }
@@ -458,25 +458,25 @@ cmd_config() {
     apply_cmd="$(config_get "apply_command")"
     skip_confirmation="$(config_get "skip_confirmation")"
 
-    local auto_label="non"
-    [[ "$skip_confirmation" == "true" ]] && auto_label="oui"
+    local auto_label="no"
+    [[ "$skip_confirmation" == "true" ]] && auto_label="yes"
 
     local choice
     choice="$(printf '%s\n' \
-      "packages_file │ ${COLOR_VIOLET}▪${COLOR_RESET}  Fichier packages : $pkg_file" \
-      "apply_command │ ${COLOR_VIOLET}▸${COLOR_RESET}  Commande d'apply : $apply_cmd" \
-      "flake_file    │ ${COLOR_VIOLET}◈${COLOR_RESET}  Fichier flake : $flake_file" \
-      "skip_confirmation    │ ${COLOR_GREEN}◉${COLOR_RESET}  Passer la confirmation : $auto_label" \
-      "update_index  │ ${COLOR_VIOLET}↻${COLOR_RESET}  Mettre à jour l'index nix-search-tv" \
-      "redetect      │ ${COLOR_VIOLET}⟳${COLOR_RESET}  Relancer la détection (nixdash init)" \
-      "back          │ ${COLOR_DIM}↩${COLOR_RESET}  Retour" \
+      "packages_file │ ${COLOR_VIOLET}▪${COLOR_RESET}  Packages file: $pkg_file" \
+      "apply_command │ ${COLOR_VIOLET}▸${COLOR_RESET}  Apply command: $apply_cmd" \
+      "flake_file    │ ${COLOR_VIOLET}◈${COLOR_RESET}  Flake file: $flake_file" \
+      "skip_confirmation    │ ${COLOR_GREEN}◉${COLOR_RESET}  Skip confirmation: $auto_label" \
+      "update_index  │ ${COLOR_VIOLET}↻${COLOR_RESET}  Update nix-search-tv index" \
+      "redetect      │ ${COLOR_VIOLET}⟳${COLOR_RESET}  Re-run detection (nixdash init)" \
+      "back          │ ${COLOR_DIM}↩${COLOR_RESET}  Back" \
     | fzf \
       --ansi \
       --no-sort \
       --height=50% \
       --layout=reverse \
       --border \
-      --header "Configuration nixdash" \
+      --header "nixdash settings" \
       --preview "bash '$nixdash_bin' _config-preview {1}" \
       --preview-window "right:50%:wrap" \
       --delimiter "│" \
@@ -489,37 +489,37 @@ cmd_config() {
     case "$cmd" in
       packages_file)
         local new_val
-        new_val="$(ui_input "Chemin du fichier packages" "$pkg_file")" || continue
+        new_val="$(ui_input "Path to packages file" "$pkg_file")" || continue
         [[ -n "$new_val" ]] && config_set "packages_file" "$new_val"
-        ui_success "Fichier packages mis à jour"
+        ui_success "Packages file updated"
         ;;
       apply_command)
         local new_val
-        new_val="$(ui_input "Commande d'apply" "$apply_cmd")" || continue
+        new_val="$(ui_input "Apply command" "$apply_cmd")" || continue
         [[ -n "$new_val" ]] && config_set "apply_command" "$new_val"
-        ui_success "Commande d'apply mise à jour"
+        ui_success "Apply command updated"
         ;;
       flake_file)
         local new_val
-        new_val="$(ui_input "Chemin du fichier flake.nix" "$flake_file")" || continue
+        new_val="$(ui_input "Path to flake.nix" "$flake_file")" || continue
         [[ -n "$new_val" ]] && config_set "flake_file" "$new_val"
-        ui_success "Fichier flake mis à jour"
+        ui_success "Flake file updated"
         ;;
       skip_confirmation)
         if [[ "$skip_confirmation" == "true" ]]; then
           config_set "skip_confirmation" "false"
-          ui_success "Confirmation réactivée"
+          ui_success "Confirmation re-enabled"
         else
           config_set "skip_confirmation" "true"
-          ui_success "Confirmation désactivée"
+          ui_success "Confirmation disabled"
         fi
         ;;
       update_index)
         if command -v nix-search-tv &>/dev/null; then
-          ui_spin "Mise à jour de l'index nix-search-tv..." nix-search-tv fetch
-          ui_success "Index mis à jour"
+          ui_spin "Updating nix-search-tv index..." nix-search-tv fetch
+          ui_success "Index updated"
         else
-          ui_error "nix-search-tv n'est pas installé"
+          ui_error "nix-search-tv is not installed"
         fi
         ;;
       redetect)

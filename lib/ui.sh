@@ -106,6 +106,6 @@ ui_open_url() {
   elif command -v wslview &>/dev/null; then
     wslview "$url"
   else
-    ui_warn "Impossible d'ouvrir le navigateur. URL : $url"
+    ui_warn "Cannot open browser. URL: $url"
   fi
 }
