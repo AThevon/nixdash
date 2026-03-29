@@ -13,7 +13,8 @@ fi
 
 ASSETS_DIR="$SCRIPT_DIR/assets"
 if [[ ! -d "$ASSETS_DIR" ]]; then
-  ASSETS_DIR="$(dirname "$SCRIPT_DIR")/assets"
+  # Nix store layout: $out/bin/nixdash + $out/assets/nixdash/
+  ASSETS_DIR="$(dirname "$SCRIPT_DIR")/assets/nixdash"
 fi
 
 source "$LIB_DIR/config.sh"

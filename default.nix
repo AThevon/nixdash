@@ -12,8 +12,8 @@ stdenvNoCC.mkDerivation rec {
     install -Dm755 nixdash.sh $out/bin/nixdash
     mkdir -p $out/lib/nixdash
     cp lib/*.sh $out/lib/nixdash/
-    mkdir -p $out/assets
-    cp assets/* $out/assets/
+    mkdir -p $out/assets/nixdash
+    cp assets/* $out/assets/nixdash/
     install -Dm644 completions/_nixdash $out/share/zsh/site-functions/_nixdash
   '';
 
