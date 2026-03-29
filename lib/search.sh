@@ -11,6 +11,27 @@ _search_build_installed_set() {
   done <<< "$_PACKAGES_CACHE" | sort
 }
 
+# _shell_preview PKG SELECTED_LIST — shows selected packages + package info
+_shell_preview() {
+  local pkg="$1"
+  local selected_str="$2"
+
+  # Show selected packages
+  if [[ -n "$selected_str" ]]; then
+    echo "Selected packages:"
+    echo "─────────────────────────"
+    for s in $selected_str; do
+      echo "  • $s"
+    done
+    echo ""
+    echo "─────────────────────────"
+    echo ""
+  fi
+
+  # Show package info
+  _search_preview "$pkg"
+}
+
 # _search_preview PKG — shows package info from nix-search-tv
 _search_preview() {
   local pkg="$1"
@@ -27,15 +48,13 @@ _search_preview() {
   echo "$info"
 }
 
-# search_fzf [--multiselect] [--query "query"] — interactive package search via fzf
-# Returns selected package name(s) on stdout
+# search_fzf [--query "query"] — interactive single-select package search via fzf
+# Returns selected package name on stdout
 search_fzf() {
-  local multiselect=0
   local query=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --multiselect) multiselect=1; shift ;;
       --query) query="$2"; shift 2 ;;
       *) shift ;;
     esac
@@ -65,17 +84,7 @@ search_fzf() {
     --preview-window "right:50%:wrap"
   )
 
-  if (( multiselect )); then
-    fzf_args+=(
-      --multi
-      --bind 'tab:toggle+down'
-      --bind 'shift-tab:toggle+up'
-      --bind 'ctrl-l:clear-query'
-      --header "TAB select · CTRL-L clear query · ENTER confirm"
-    )
-  else
-    fzf_args+=(--header "Search Nix packages")
-  fi
+  fzf_args+=(--header "Search Nix packages")
 
   # Check if index exists, fetch if empty
   local pkg_count
