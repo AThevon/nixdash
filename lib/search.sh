@@ -93,8 +93,10 @@ search_fzf() {
   fi
 
   # Pipe nix-search-tv through awk to add ✓ markers for installed packages
-  local selection
-  selection="$(nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
+  local tmpfile
+  tmpfile="$(mktemp)"
+
+  nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
     BEGIN {
       n = split(installed, arr, "\n")
       for (i = 1; i <= n; i++) {
@@ -109,7 +111,11 @@ search_fzf() {
         printf "○ %s\n", $0
       }
     }
-  ' | fzf "${fzf_args[@]}")" || return 1
+  ' | fzf "${fzf_args[@]}" > "$tmpfile" || { rm -f "$tmpfile"; return 1; }
+
+  local selection
+  selection="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
 
   # Extract package names from selection
   # Format: "✓ nixpkgs/ package_name ..." or "○ nixpkgs/ package_name ..."
