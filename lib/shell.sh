@@ -49,7 +49,7 @@ cmd_shell() {
         n = split(installed, arr, "\n")
         for (i = 1; i <= n; i++) inst[arr[i]] = 1
       }
-      {
+      /^nixpkgs\// {
         name = $2
         if (name in inst) printf "✓ %s\n", $0
         else printf "○ %s\n", $0
