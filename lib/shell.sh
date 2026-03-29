@@ -1,6 +1,47 @@
 #!/usr/bin/env bash
 # nixdash — temporary shell
 
+# cmd_shell [PKG...] — enter a temporary nix shell with packages
 cmd_shell() {
-  echo "[stub] nixdash shell — not yet implemented" >&2
+  # If args provided, launch directly
+  if [[ $# -gt 0 ]]; then
+    local nix_args=()
+    local pkg
+    for pkg in "$@"; do
+      nix_args+=("nixpkgs#$pkg")
+    done
+    ui_info "Lancement : nix shell ${nix_args[*]}"
+    exec nix shell "${nix_args[@]}"
+  fi
+
+  # No args — interactive multiselect
+  config_ensure
+
+  local selection
+  selection="$(search_fzf --multiselect)" || return 0
+  [[ -z "$selection" ]] && return 0
+
+  # Build nix shell args
+  local nix_args=()
+  local pkg
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
+    nix_args+=("nixpkgs#$pkg")
+  done <<< "$selection"
+
+  if [[ ${#nix_args[@]} -eq 0 ]]; then
+    ui_warn "Aucun package sélectionné"
+    return 0
+  fi
+
+  # Show recap
+  ui_info "Packages sélectionnés :"
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
+    echo -e "  ${COLOR_CYAN}•${COLOR_RESET} $pkg" >&2
+  done <<< "$selection"
+  echo >&2
+
+  ui_info "Lancement : nix shell ${nix_args[*]}"
+  exec nix shell "${nix_args[@]}"
 }
