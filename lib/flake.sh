@@ -368,5 +368,71 @@ cmd_init() {
 }
 
 cmd_config() {
-  echo "[stub] nixdash config — not yet implemented" >&2
+  config_ensure
+
+  while true; do
+    local pkg_file flake_file apply_cmd auto_apply
+    pkg_file="$(config_get "packages_file")"
+    flake_file="$(config_get "flake_file")"
+    apply_cmd="$(config_get "apply_command")"
+    auto_apply="$(config_get "auto_apply")"
+
+    local auto_label="non"
+    [[ "$auto_apply" == "true" ]] && auto_label="oui"
+
+    local choice
+    choice="$(ui_choose "Configuration nixdash" \
+      "📄 Fichier packages : $pkg_file" \
+      "🔧 Commande d'apply : $apply_cmd" \
+      "📦 Fichier flake : $flake_file" \
+      "✅ Apply auto : $auto_label" \
+      "🔄 Mettre à jour l'index nix-search-tv" \
+      "🔁 Relancer la détection (nixdash init)" \
+      "❌ Retour")" || return 0
+
+    case "$choice" in
+      "📄 Fichier packages"*)
+        local new_val
+        new_val="$(ui_input "Chemin du fichier packages" "$pkg_file")" || continue
+        [[ -n "$new_val" ]] && config_set "packages_file" "$new_val"
+        ui_success "Fichier packages mis à jour"
+        ;;
+      "🔧 Commande d'apply"*)
+        local new_val
+        new_val="$(ui_input "Commande d'apply" "$apply_cmd")" || continue
+        [[ -n "$new_val" ]] && config_set "apply_command" "$new_val"
+        ui_success "Commande d'apply mise à jour"
+        ;;
+      "📦 Fichier flake"*)
+        local new_val
+        new_val="$(ui_input "Chemin du fichier flake.nix" "$flake_file")" || continue
+        [[ -n "$new_val" ]] && config_set "flake_file" "$new_val"
+        ui_success "Fichier flake mis à jour"
+        ;;
+      "✅ Apply auto"*)
+        if [[ "$auto_apply" == "true" ]]; then
+          config_set "auto_apply" "false"
+          ui_success "Apply auto désactivé"
+        else
+          config_set "auto_apply" "true"
+          ui_success "Apply auto activé"
+        fi
+        ;;
+      "🔄 Mettre à jour"*)
+        if command -v nix-search-tv &>/dev/null; then
+          ui_spin "Mise à jour de l'index nix-search-tv..." nix-search-tv fetch
+          ui_success "Index mis à jour"
+        else
+          ui_error "nix-search-tv n'est pas installé"
+        fi
+        ;;
+      "🔁 Relancer"*)
+        cmd_init
+        return 0
+        ;;
+      "❌ Retour")
+        return 0
+        ;;
+    esac
+  done
 }
