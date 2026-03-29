@@ -65,8 +65,9 @@ search_fzf() {
     fzf_args+=(
       --multi
       --bind 'tab:toggle+clear-query'
-      --bind 'ctrl-a:toggle-all'
-      --header "TAB select + clear · CTRL-A all · ENTER confirm"
+      --header "TAB select · ENTER launch shell · ESC cancel"
+      --preview "echo 'Temporary Shell'; echo '─────────────────'; echo ''; echo 'TAB     Select/deselect a package'; echo '        Query is cleared after each'; echo '        selection so you can search'; echo '        for the next one.'; echo ''; echo 'ENTER   Launch shell with selected'; echo 'ESC     Cancel'; echo ''; echo '─────────────────'; echo '✓ = already installed (info only)'"
+      --preview-window "right:40%:wrap"
     )
   fi
 
