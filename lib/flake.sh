@@ -136,7 +136,7 @@ _flake_add_output_arg() {
 
   # Pattern: outputs = { nixpkgs, home-manager, wt, ... }:
   # Insert name before "... }:" or before the last ", ... }"
-  sed -i "s/\(,\)\([[:space:]]*\.\.\.[[:space:]]*}\)/\1 ${name}\2/" "$flake_file"
+  sed -i "s/\(,\)\([[:space:]]*\.\.\.[[:space:]]*}\)/\1 ${name},\2/" "$flake_file"
 }
 
 # flake_remove_input NAME — remove input block, inherit ref, and output arg
