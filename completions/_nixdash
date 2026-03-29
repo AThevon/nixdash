@@ -1,0 +1,24 @@
+#compdef nixdash
+
+_nixdash() {
+  local -a commands
+  commands=(
+    'list:List installed packages'
+    'search:Search for packages'
+    'shell:Enter a temporary shell with packages'
+    'add-flake:Add a flake input'
+    'config:Edit nixdash configuration'
+    'init:Initialize nixdash in a project'
+  )
+
+  _arguments \
+    '(-h --help)'{-h,--help}'[Show help]' \
+    '(-v --version)'{-v,--version}'[Show version]' \
+    '1:command:->cmds' && return 0
+
+  case "$state" in
+    cmds) _describe -t commands 'nixdash command' commands ;;
+  esac
+}
+
+_nixdash "$@"
