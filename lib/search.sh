@@ -123,6 +123,57 @@ search_is_self() {
   [[ "$pkg" == "nixdash" || "$pkg" == nixdash.* ]]
 }
 
+# _search_install_packages PKG... — install one or more packages with diff + confirm
+_search_install_packages() {
+  local pkgs=("$@")
+  local pkg_file
+  pkg_file="$(config_get "packages_file")"
+
+  local backup
+  backup="$(mktemp)"
+  cp "$pkg_file" "$backup"
+
+  local added=0
+  for pkg in "${pkgs[@]}"; do
+    if packages_is_installed "$pkg"; then
+      ui_dim "  $pkg already installed, skipping" >&2
+    else
+      packages_add "$pkg"
+      ((added++))
+    fi
+  done
+
+  if [[ $added -eq 0 ]]; then
+    ui_warn "All packages already installed"
+    rm -f "$backup"
+    return 0
+  fi
+
+  ui_diff "$backup" "$pkg_file"
+
+  local skip_confirmation
+  skip_confirmation="$(config_get "skip_confirmation")"
+
+  if [[ "$skip_confirmation" != "true" ]]; then
+    if ! ui_confirm "Install $added package(s)?"; then
+      cp "$backup" "$pkg_file"
+      _PACKAGES_CACHE=""
+      ui_warn "Cancelled — file restored"
+      rm -f "$backup"
+      return 0
+    fi
+  fi
+
+  rm -f "$backup"
+
+  local apply_cmd
+  apply_cmd="$(config_get "apply_command")"
+  ui_info "Running: $apply_cmd"
+  eval "$apply_cmd"
+  ui_success "$added package(s) installed"
+  return 10
+}
+
 # cmd_search [QUERY] — interactive search and install/manage packages
 cmd_search() {
   config_ensure
@@ -132,94 +183,136 @@ cmd_search() {
     query="$*"
   fi
 
-  # Run fzf search
-  local pkg
-  local fzf_args=()
-  [[ -n "$query" ]] && fzf_args+=(--query "$query")
-  pkg="$(search_fzf "${fzf_args[@]}")" || return 0
-  [[ -z "$pkg" ]] && return 0
+  # Run fzf search (multiselect with TAB)
+  local fzf_args=(--query "${query:-}")
 
-  # Self-protection
-  if search_is_self "$pkg"; then
-    ui_warn "Cannot modify nixdash from within nixdash"
+  # Check index
+  local idx_count
+  idx_count="$(nix-search-tv print 2>/dev/null | head -1 | wc -l)"
+  if [[ "$idx_count" -eq 0 ]]; then
+    ui_warn "nix-search-tv index is empty"
+    if ui_confirm "Download package index now?"; then
+      ui_spin "Fetching nix-search-tv index..." nix-search-tv fetch
+      ui_success "Index ready"
+    else
+      ui_error "Cannot search without an index"
+      return 1
+    fi
+  fi
+
+  local installed_set
+  installed_set="$(_search_build_installed_set)"
+  local nixdash_bin="$NIXDASH_BIN"
+
+  local pkg_list_file
+  pkg_list_file="$(mktemp)"
+  nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
+    BEGIN {
+      n = split(installed, arr, "\n")
+      for (i = 1; i <= n; i++) inst[arr[i]] = 1
+    }
+    {
+      name = $2
+      if (name in inst) printf "✓ %s\n", $0
+      else printf "○ %s\n", $0
+    }
+  ' > "$pkg_list_file"
+
+  local tmpfile
+  tmpfile="$(mktemp)"
+
+  fzf \
+    --multi \
+    --ansi \
+    --height=70% \
+    --layout=reverse \
+    --border \
+    --delimiter " " \
+    --header "TAB select multiple · ENTER confirm · ESC cancel" \
+    --preview "bash '$nixdash_bin' _search-preview {3}" \
+    --preview-window "right:50%:wrap" \
+    --query "${query:-}" \
+    < "$pkg_list_file" > "$tmpfile" 2>/dev/null
+
+  local exit_code=$?
+  rm -f "$pkg_list_file"
+
+  if [[ $exit_code -ne 0 ]]; then
+    rm -f "$tmpfile"
     return 0
   fi
 
-  # Check if already installed
-  if packages_is_installed "$pkg"; then
-    local display_name
-    display_name="$(packages_display_name "$pkg")"
-    local pkg_type
-    pkg_type="$(packages_type "$pkg")"
+  # Extract selected package names
+  local selected=()
+  local line
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    line="${line#✓ }"
+    line="${line#○ }"
+    line="${line#nixpkgs/ }"
+    local pkg_name="${line%% *}"
+    [[ -n "$pkg_name" ]] && selected+=("$pkg_name")
+  done < "$tmpfile"
+  rm -f "$tmpfile"
 
-    local action
-    action="$(ui_choose "\"$display_name\" is already installed:" \
-      "✕  Remove" \
-      "◎  View online" \
-      "↩  Cancel")" || return 0
+  [[ ${#selected[@]} -eq 0 ]] && return 0
 
-    case "$action" in
-      *"Remove")
-        _packages_do_remove "$pkg" "$pkg_type"
-        ;;
-      *"View online")
-        ui_open_url "https://search.nixos.org/packages?query=$display_name"
-        ;;
-      *"Cancel")
-        return 0
-        ;;
-    esac
-  else
-    # Not installed — choose action
-    local action
-    action="$(ui_choose "$pkg:" \
-      "⊕  Install" \
-      "»  Test in a shell" \
-      "↩  Cancel")" || return 0
+  # Single selection — show action menu
+  if [[ ${#selected[@]} -eq 1 ]]; then
+    local pkg="${selected[0]}"
 
-    case "$action" in
-      *"Install")
-        local pkg_file
-        pkg_file="$(config_get "packages_file")"
+    if search_is_self "$pkg"; then
+      ui_warn "Cannot modify nixdash from within nixdash"
+      return 0
+    fi
 
-        local backup
-        backup="$(mktemp)"
-        cp "$pkg_file" "$backup"
+    if packages_is_installed "$pkg"; then
+      local display_name
+      display_name="$(packages_display_name "$pkg")"
+      local pkg_type
+      pkg_type="$(packages_type "$pkg")"
 
-        packages_add "$pkg"
-        ui_diff "$backup" "$pkg_file"
+      local action
+      action="$(ui_choose "\"$display_name\" is already installed:" \
+        "✕  Remove" \
+        "◎  View online" \
+        "↩  Cancel")" || return 0
 
-        local skip_confirmation
-        skip_confirmation="$(config_get "skip_confirmation")"
+      case "$action" in
+        *"Remove")
+          _packages_do_remove "$pkg" "$pkg_type"
+          return 10
+          ;;
+        *"View online")
+          ui_open_url "https://search.nixos.org/packages?query=$display_name"
+          ;;
+      esac
+      return 0
+    else
+      local action
+      action="$(ui_choose "$pkg:" \
+        "⊕  Install" \
+        "»  Test in a shell" \
+        "↩  Cancel")" || return 0
 
-        if [[ "$skip_confirmation" == "true" ]]; then
-          ui_info "Auto-applying..."
-        else
-          if ! ui_confirm "Install $pkg?"; then
-            cp "$backup" "$pkg_file"
-            _PACKAGES_CACHE=""
-            ui_warn "Cancelled — file restored"
-            rm -f "$backup"
-            return 1
-          fi
-        fi
-
-        rm -f "$backup"
-
-        local apply_cmd
-        apply_cmd="$(config_get "apply_command")"
-        ui_info "Running: $apply_cmd"
-        eval "$apply_cmd"
-        ui_success "$pkg installed"
-        ;;
-      *"Test"*)
-        ui_info "Launching temporary shell with $pkg..."
-        ui_dim "Type 'exit' to leave the temporary shell."
-        nix shell "nixpkgs#$pkg"
-        ;;
-      *"Cancel")
-        return 0
-        ;;
-    esac
+      case "$action" in
+        *"Install")
+          _search_install_packages "$pkg"
+          return $?
+          ;;
+        *"Test"*)
+          ui_info "Launching temporary shell with $pkg..."
+          ui_dim "Type 'exit' to leave. Run 'nixdash' to install."
+          export NIXDASH_SHELL_PKGS="$pkg"
+          nix shell "nixpkgs#$pkg"
+          return 0
+          ;;
+      esac
+      return 0
+    fi
   fi
+
+  # Multiple selection — batch install
+  _search_install_packages "${selected[@]}"
+  return $?
 }

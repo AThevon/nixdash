@@ -397,6 +397,7 @@ _packages_do_remove() {
   ui_info "Running: $apply_cmd"
   eval "$apply_cmd"
   ui_success "Changes applied"
+  return 10
 }
 
 # _list_preview — preview for the list view (handles both nixpkgs and flakes)
@@ -576,6 +577,7 @@ cmd_list() {
   case "$action" in
     *"Remove")
       _packages_do_remove "$full_name" "$pkg_type"
+      return $?
       ;;
     *"View online")
       if [[ "$pkg_type" == "flake" ]]; then

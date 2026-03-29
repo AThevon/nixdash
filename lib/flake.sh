@@ -320,6 +320,7 @@ cmd_add_flake() {
   ui_info "Running: $apply_cmd"
   eval "$apply_cmd"
   ui_success "Flake ${input_name} added and applied"
+  return 10
 }
 
 cmd_init() {

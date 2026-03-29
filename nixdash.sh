@@ -82,7 +82,69 @@ _hub_preview() {
       echo "• Toggle auto apply"
       echo "• Update nix-search-tv index"
       ;;
+    install-shell)
+      echo -e "${COLOR_GREEN}⊕${COLOR_RESET}  Install shell packages"
+      echo ""
+      echo "Install the packages from your current"
+      echo "temporary nix shell into your config."
+      echo ""
+      echo "Packages: ${NIXDASH_SHELL_PKGS:-none}"
+      ;;
   esac
+}
+
+# ── Install packages from active nix shell ─────────────────────
+_cmd_install_shell_pkgs() {
+  [[ -z "${NIXDASH_SHELL_PKGS:-}" ]] && { ui_warn "No shell packages detected"; return 0; }
+
+  local pkgs=()
+  read -ra pkgs <<< "$NIXDASH_SHELL_PKGS"
+
+  ui_info "Packages from current shell:"
+  for pkg in "${pkgs[@]}"; do
+    echo -e "  ${COLOR_CYAN}•${COLOR_RESET} $pkg" >&2
+  done
+  echo >&2
+
+  local pkg_file
+  pkg_file="$(config_get "packages_file")"
+  local backup
+  backup="$(mktemp)"
+  cp "$pkg_file" "$backup"
+
+  local added=0
+  for pkg in "${pkgs[@]}"; do
+    if ! packages_is_installed "$pkg"; then
+      packages_add "$pkg"
+      ((added++))
+    else
+      ui_dim "  $pkg already installed, skipping" >&2
+    fi
+  done
+
+  if [[ $added -eq 0 ]]; then
+    ui_warn "All packages already installed"
+    rm -f "$backup"
+    return 0
+  fi
+
+  ui_diff "$backup" "$pkg_file"
+
+  if ! ui_confirm "Install $added package(s)?"; then
+    cp "$backup" "$pkg_file"
+    _PACKAGES_CACHE=""
+    ui_warn "Cancelled — file restored"
+    rm -f "$backup"
+    return 0
+  fi
+
+  rm -f "$backup"
+  local apply_cmd
+  apply_cmd="$(config_get "apply_command")"
+  ui_info "Running: $apply_cmd"
+  eval "$apply_cmd"
+  ui_success "$added package(s) installed"
+  return 10
 }
 
 # ── Hub ────────────────────────────────────────────────────────
@@ -117,12 +179,22 @@ cmd_hub() {
     local tmpfile
     tmpfile="$(mktemp)"
 
-    printf '%s\n' \
-      "list     │ ${COLOR_VIOLET}◈${COLOR_RESET}  My packages ($pkg_count)" \
-      "search   │ ${COLOR_VIOLET}⊕${COLOR_RESET}  Search packages" \
-      "shell    │ ${COLOR_VIOLET}»${COLOR_RESET}  Temporary shell" \
-      "add-flake│ ${COLOR_VIOLET}⊞${COLOR_RESET}  Add external flake" \
-      "config   │ ${COLOR_DIM}⚙${COLOR_RESET}  Settings" \
+    # Build menu items
+    local menu_items=(
+      "list     │ ${COLOR_VIOLET}◈${COLOR_RESET}  My packages ($pkg_count)"
+      "search   │ ${COLOR_VIOLET}⊕${COLOR_RESET}  Search packages"
+      "shell    │ ${COLOR_VIOLET}»${COLOR_RESET}  Temporary shell"
+      "add-flake│ ${COLOR_VIOLET}⊞${COLOR_RESET}  Add external flake"
+    )
+
+    # If in a nix shell with tracked packages, offer to install them
+    if [[ -n "${NIXDASH_SHELL_PKGS:-}" ]]; then
+      menu_items+=("install-shell│ ${COLOR_GREEN}⊕${COLOR_RESET}  Install shell packages (${NIXDASH_SHELL_PKGS})")
+    fi
+
+    menu_items+=("config   │ ${COLOR_DIM}⚙${COLOR_RESET}  Settings")
+
+    printf '%s\n' "${menu_items[@]}" \
     | fzf \
       --ansi \
       --no-sort \
@@ -143,13 +215,17 @@ cmd_hub() {
     local cmd
     cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
 
+    # Commands that modify packages return 10 on success to signal hub exit
+    local rc=0
     case "$cmd" in
-      list)      cmd_list || true ;;
-      search)    cmd_search || true ;;
-      shell)     cmd_shell || true ;;
-      add-flake) cmd_add_flake || true ;;
-      config)    cmd_config || true ;;
+      list)          cmd_list || rc=$? ;;
+      search)        cmd_search || rc=$? ;;
+      shell)         cmd_shell || true ;;
+      add-flake)     cmd_add_flake || rc=$? ;;
+      config)        cmd_config || true ;;
+      install-shell) _cmd_install_shell_pkgs || rc=$? ;;
     esac
+    [[ $rc -eq 10 ]] && return 0
   done
 }
 

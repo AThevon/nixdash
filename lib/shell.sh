@@ -11,6 +11,7 @@ cmd_shell() {
       nix_args+=("nixpkgs#$pkg")
     done
     ui_info "Launching: nix shell ${nix_args[*]}"
+    export NIXDASH_SHELL_PKGS="$*"
     exec nix shell "${nix_args[@]}"
   fi
 
@@ -111,7 +112,8 @@ cmd_shell() {
           nix_args+=("nixpkgs#$pkg")
         done
         ui_info "Launching: nix shell ${nix_args[*]}"
-        ui_dim "Type 'exit' to leave the temporary shell."
+        ui_dim "Type 'exit' to leave. Run 'nixdash' to install these packages."
+        export NIXDASH_SHELL_PKGS="${selected[*]}"
         nix shell "${nix_args[@]}"
         return 0
         ;;
