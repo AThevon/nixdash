@@ -51,7 +51,7 @@ search_fzf() {
   local fzf_args=(
     --ansi
     --header "Recherche de packages Nix"
-    --preview "bash '$nixdash_bin' _search-preview {1}"
+    --preview "bash '$nixdash_bin' _search-preview {2}"
     --preview-window "right:50%:wrap"
     --delimiter " "
   )
@@ -74,7 +74,7 @@ search_fzf() {
       }
     }
     {
-      name = $1
+      name = $2
       if (name in inst) {
         printf "✓ %s\n", $0
       } else {
@@ -83,13 +83,15 @@ search_fzf() {
     }
   ' | fzf "${fzf_args[@]}")" || return 1
 
-  # Extract package names from selection (strip marker and take first field)
+  # Extract package names from selection
+  # Format: "✓ nixpkgs/ package_name ..." or "  nixpkgs/ package_name ..."
   local line
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
-    # Strip ✓ or spaces prefix, take first field (package name)
+    # Strip ✓ or spaces prefix, strip "nixpkgs/ " prefix, take first field
     line="${line#✓ }"
     line="${line#  }"
+    line="${line#nixpkgs/ }"
     echo "${line%% *}"
   done <<< "$selection"
 }
