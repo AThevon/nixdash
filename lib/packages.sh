@@ -361,6 +361,50 @@ _packages_do_remove() {
   ui_success "Changes applied"
 }
 
+# _list_preview — preview for the list view (handles both nixpkgs and flakes)
+_list_preview() {
+  local item="$1"
+  [[ -z "$item" ]] && return 0
+
+  # Separator lines
+  [[ "$item" == "──"* ]] && return 0
+
+  # Check if it's a flake item (starts with ⚡)
+  if [[ "$item" == "⚡" ]]; then
+    local display_name="$2"
+    [[ -z "$display_name" ]] && return 0
+
+    # Get flake URL from flake.nix
+    local flake_file
+    flake_file="$(config_get "flake_file")"
+    local url=""
+    if [[ -n "$flake_file" && -f "$flake_file" ]]; then
+      url="$(grep -oP "${display_name}\\.url\\s*=\\s*\"\\K[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
+    fi
+
+    echo "Flake input: $display_name"
+    echo "─────────────────────────"
+    echo ""
+    if [[ -n "$url" ]]; then
+      echo "URL:  $url"
+      if [[ "$url" == github:* ]]; then
+        echo "Repo: https://github.com/${url#github:}"
+      fi
+    else
+      echo "URL: (not found in flake.nix)"
+    fi
+    echo ""
+    echo "Type: External flake input"
+    echo ""
+    echo "This package comes from a custom flake,"
+    echo "not from nixpkgs."
+    return 0
+  fi
+
+  # Regular nixpkgs package — use nix-search-tv
+  _search_preview "$item"
+}
+
 # cmd_list — interactive list of installed packages with actions
 cmd_list() {
   config_ensure
@@ -368,8 +412,8 @@ cmd_list() {
 
   [[ -z "$_PACKAGES_CACHE" ]] && { ui_warn "No packages found"; return 0; }
 
-  # Build fzf input
-  local fzf_input=""
+  # Separate packages into groups
+  local flakes="" nixpkgs_main="" nixpkgs_cond=""
   local entry
   while IFS= read -r entry; do
     [[ -z "$entry" ]] && continue
@@ -377,13 +421,34 @@ cmd_list() {
     local rest="${entry#*|}"
     local type="${rest%%|*}"
     local condition="${rest#*|}"
-    local line
-    line="$(packages_format_line "$name" "$type" "$condition")"
-    if [[ -n "$fzf_input" ]]; then
-      fzf_input+=$'\n'
+    if [[ "$type" == "flake" ]]; then
+      local dname
+      dname="$(packages_display_name "$name")"
+      flakes+="⚡ ${dname}"$'\n'
+    elif [[ -n "$condition" ]]; then
+      nixpkgs_cond+="${name} ($condition)"$'\n'
+    else
+      nixpkgs_main+="${name}"$'\n'
     fi
-    fzf_input+="$line"
   done <<< "$_PACKAGES_CACHE"
+
+  # Build grouped fzf input
+  local fzf_input=""
+  if [[ -n "$flakes" ]]; then
+    fzf_input+="── Flake inputs ──────────────────"$'\n'
+    fzf_input+="${flakes}"
+  fi
+  if [[ -n "$nixpkgs_main" ]]; then
+    fzf_input+="── Packages ──────────────────────"$'\n'
+    fzf_input+="${nixpkgs_main}"
+  fi
+  if [[ -n "$nixpkgs_cond" ]]; then
+    fzf_input+="── Platform-specific ─────────────"$'\n'
+    fzf_input+="${nixpkgs_cond}"
+  fi
+
+  # Remove trailing newline
+  fzf_input="${fzf_input%$'\n'}"
 
   local nixdash_bin="$NIXDASH_BIN"
 
@@ -396,8 +461,9 @@ cmd_list() {
     --height=70% \
     --layout=reverse \
     --border \
+    --no-sort \
     --header "Installed packages" \
-    --preview "bash '$nixdash_bin' _search-preview {1}" \
+    --preview "bash '$nixdash_bin' _list-preview {1} {2}" \
     --preview-window "right:50%:wrap" \
   > "$tmpfile" || { rm -f "$tmpfile"; return 0; }
 
@@ -405,8 +471,17 @@ cmd_list() {
   selection="$(cat "$tmpfile")"
   rm -f "$tmpfile"
 
-  # Extract package name (first word before any markers)
-  local display_name="${selection%% *}"
+  # Skip separator lines
+  [[ "$selection" == "──"* ]] && return 0
+
+  # Extract package name
+  local display_name
+  if [[ "$selection" == "⚡ "* ]]; then
+    display_name="${selection#⚡ }"
+    display_name="${display_name%% *}"
+  else
+    display_name="${selection%% *}"
+  fi
 
   # Resolve display name back to full package name
   local full_name="$display_name"

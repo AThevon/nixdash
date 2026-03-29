@@ -211,6 +211,9 @@ main() {
     _search-preview)
       shift; _search_preview "$@"
       ;;
+    _list-preview)
+      shift; _list_preview "$@"
+      ;;
     _hub-preview)
       shift; _hub_preview "$@"
       ;;
