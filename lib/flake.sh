@@ -2,17 +2,30 @@
 # nixdash — flake management
 
 # --- Flake parsing/editing functions ---
+# Supports both formats:
+#   name.url = "...";                 (flat style)
+#   name = { url = "..."; };          (block style)
 
 _flake_file() {
   config_get "flake_file"
 }
 
-# flake_list_inputs — list all input names from flake.nix (lines with .url)
+# flake_list_inputs — list all input names from flake.nix
 flake_list_inputs() {
   local flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
-  sed -n 's/^[[:space:]]*\([a-zA-Z0-9_-]*\)\.url[[:space:]]*=.*/\1/p' "$flake_file"
+
+  awk '
+    /^[[:space:]]*inputs[[:space:]]*=/ { in_inputs=1; next }
+    in_inputs && /^[[:space:]]*\};/ { exit }
+    in_inputs {
+      # Flat: name.url = "...";
+      if (match($0, /^[[:space:]]*([a-zA-Z0-9_-]+)\.url/, m)) print m[1]
+      # Block: name = {
+      else if (match($0, /^[[:space:]]*([a-zA-Z0-9_-]+)[[:space:]]*=[[:space:]]*\{/, m)) print m[1]
+    }
+  ' "$flake_file" | sort -u
 }
 
 # flake_get_input_url NAME — extract the URL for a given input
@@ -20,19 +33,43 @@ flake_get_input_url() {
   local name="$1" flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
+
+  # Try flat style: name.url = "...";
   local url
-  url=$(sed -n "s/^[[:space:]]*${name}\.url[[:space:]]*=[[:space:]]*\"\(.*\)\";/\1/p" "$flake_file")
+  url="$(grep -oP "^\\s*${name}\\.url\\s*=\\s*\"\\K[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
+
+  # Try block style: name = { url = "..."; };
+  if [[ -z "$url" ]]; then
+    url="$(awk -v name="$name" '
+      match($0, "^[[:space:]]*" name "[[:space:]]*=[[:space:]]*\\{") { found=1; next }
+      found && /url[[:space:]]*=/ {
+        match($0, /url[[:space:]]*=[[:space:]]*"([^"]*)"/, m)
+        if (m[1]) { print m[1]; exit }
+      }
+      found && /\};/ { exit }
+    ' "$flake_file" 2>/dev/null)" || true
+  fi
+
   echo "$url"
 }
 
-# flake_find_inputs_end — find line number of closing }; of inputs block
+# flake_find_inputs_end — find line number of the actual closing }; of the top-level inputs block
 flake_find_inputs_end() {
   local flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
+
+  # Count brace depth to find the real end of the inputs block
   awk '
-    /inputs[[:space:]]*=/ { in_inputs = 1 }
-    in_inputs && /^[[:space:]]*\};/ { print NR; exit }
+    /^[[:space:]]*inputs[[:space:]]*=/ { in_inputs=1; depth=0 }
+    in_inputs {
+      for (i=1; i<=length($0); i++) {
+        c = substr($0, i, 1)
+        if (c == "{") depth++
+        if (c == "}") depth--
+        if (in_inputs && depth == 0 && c == "}") { print NR; exit }
+      }
+    }
   ' "$flake_file"
 }
 
@@ -44,33 +81,50 @@ flake_find_extra_special_args() {
   grep -n "extraSpecialArgs" "$flake_file" | head -1 | cut -d: -f1
 }
 
-# flake_add_input NAME URL — insert input lines before inputs block closing
+# flake_add_input NAME URL — insert a new input block before the closing }; of inputs
 flake_add_input() {
   local name="$1" url="$2" flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
+
   local end_line
   end_line="$(flake_find_inputs_end)"
   [[ -n "$end_line" ]] || return 1
-  local insert_text="    ${name}.url = \"${url}\";\n    ${name}.inputs.nixpkgs.follows = \"nixpkgs\";"
-  sed -i "${end_line}i\\${insert_text}" "$flake_file"
+
+  # Insert block-style input before the closing };
+  local insert
+  insert="$(printf '\n    %s = {\n      url = \"%s\";\n      inputs.nixpkgs.follows = \"nixpkgs\";\n    };' "$name" "$url")"
+
+  # Use awk to insert before the end line
+  awk -v end="$end_line" -v text="$insert" '
+    NR == end { print text }
+    { print }
+  ' "$flake_file" > "$flake_file.tmp"
+  mv "$flake_file.tmp" "$flake_file"
 }
 
-# flake_add_inherit NAME — add name to existing inherit line or create new one in extraSpecialArgs
+# flake_add_inherit NAME — add name to the inherit in extraSpecialArgs
 flake_add_inherit() {
   local name="$1" flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
-  # Try to find an existing inherit line in extraSpecialArgs block
-  if grep -q "inherit " "$flake_file"; then
-    # Add the name to the existing inherit line
-    sed -i "s/\(inherit[[:space:]]\+.*\);/\1 ${name};/" "$flake_file"
+
+  local esa_line
+  esa_line="$(flake_find_extra_special_args)"
+  [[ -n "$esa_line" ]] || return 1
+
+  # Read the extraSpecialArgs line
+  local esa_content
+  esa_content="$(sed -n "${esa_line}p" "$flake_file")"
+
+  # Pattern: extraSpecialArgs = { inherit a b c; };
+  # Add name to the inherit list
+  if [[ "$esa_content" == *"inherit "* ]]; then
+    # Insert name before the closing ;} of inherit
+    sed -i "${esa_line}s/\(inherit[[:space:]][^;]*\)\([[:space:]]*;\)/\1 ${name}\2/" "$flake_file"
   else
-    # Find extraSpecialArgs opening and add inherit after it
-    local args_line
-    args_line="$(flake_find_extra_special_args)"
-    [[ -n "$args_line" ]] || return 1
-    sed -i "$((args_line + 1))i\\          inherit ${name};" "$flake_file"
+    # No inherit — add one (unlikely but handle it)
+    sed -i "${esa_line}s/{\([[:space:]]*\)/{ inherit ${name};\1/" "$flake_file"
   fi
 }
 
@@ -79,32 +133,53 @@ _flake_add_output_arg() {
   local name="$1" flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
-  # outputs = { self, nixpkgs, ..., ... }:
-  # Insert before ", ... }:" or before "... }:"
-  sed -i "s/\(outputs[[:space:]]*=[[:space:]]*{[^}]*\),\([[:space:]]*\.\.\.[[:space:]]*}/\1, ${name},\2/" "$flake_file"
+
+  # Pattern: outputs = { nixpkgs, home-manager, wt, ... }:
+  # Insert name before "... }:" or before the last ", ... }"
+  sed -i "s/\(,\)\([[:space:]]*\.\.\.[[:space:]]*}\)/\1 ${name}\2/" "$flake_file"
 }
 
-# flake_remove_input NAME — remove URL, follows, inherit reference, and output arg
+# flake_remove_input NAME — remove input block, inherit ref, and output arg
 flake_remove_input() {
   local name="$1" flake_file
   flake_file="$(_flake_file)"
   [[ -f "$flake_file" ]] || return 1
 
-  # Remove input.url and input.inputs.nixpkgs.follows lines
+  # Remove flat-style lines
   sed -i "/^[[:space:]]*${name}\.url[[:space:]]*=/d" "$flake_file"
   sed -i "/^[[:space:]]*${name}\.inputs\./d" "$flake_file"
 
-  # Remove from inherit line — handle both "inherit name;" and "inherit name other;"
-  # Case 1: sole inherit → remove the whole line
-  sed -i "/^[[:space:]]*inherit[[:space:]]\+${name}[[:space:]]*;/d" "$flake_file"
-  # Case 2: first in list → "inherit name other..." → "inherit other..."
-  sed -i "s/\(inherit[[:space:]]\+\)${name}[[:space:]]\+/\1/" "$flake_file"
-  # Case 3: in the middle or end → "inherit other name..." → "inherit other..."
-  sed -i "s/\(inherit[[:space:]]\+.*\)[[:space:]]\+${name}\([[:space:]]*;\)/\1\2/" "$flake_file"
+  # Remove block-style: name = { ... };
+  # Find the block and remove it
+  awk -v name="$name" '
+    match($0, "^[[:space:]]*" name "[[:space:]]*=[[:space:]]*\\{") {
+      skip=1; depth=0
+    }
+    skip {
+      for (i=1; i<=length($0); i++) {
+        c = substr($0, i, 1)
+        if (c == "{") depth++
+        if (c == "}") depth--
+        if (depth == 0 && c == "}") { skip=0; next_line=1 }
+      }
+      if (next_line) { next_line=0; next }
+      next
+    }
+    # Remove blank line after removed block
+    prev_blank && /^[[:space:]]*$/ { prev_blank=0; next }
+    { prev_blank = /^[[:space:]]*$/; print }
+  ' "$flake_file" > "$flake_file.tmp"
+  mv "$flake_file.tmp" "$flake_file"
 
-  # Remove from outputs args
-  sed -i "s/,\s*${name}\([[:space:]]*,\)/\1/g" "$flake_file"
-  sed -i "s/,\s*${name}\([[:space:]]*,\s*\.\.\.\)/\1/g" "$flake_file"
+  # Remove from inherit in extraSpecialArgs
+  # "inherit wt nixdash system;" → "inherit nixdash system;"
+  sed -i "s/\(inherit[[:space:]]\+\)${name}[[:space:]]\+/\1/" "$flake_file"
+  # "inherit nixdash wt;" → "inherit nixdash;"
+  sed -i "s/[[:space:]]\+${name}\([[:space:]]*;\)/\1/" "$flake_file"
+
+  # Remove from outputs args: ", name," or ", name, ..."
+  sed -i "s/[[:space:]]*${name},//" "$flake_file"
+  sed -i "s/,[[:space:]]*${name}\([[:space:]]*,\)/\1/" "$flake_file"
 }
 
 # --- Command stubs ---

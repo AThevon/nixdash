@@ -50,9 +50,10 @@ teardown() {
 
 @test "flake_add_input adds input to flake.nix" {
   flake_add_input "newtool" "github:someone/newtool"
-  run grep "newtool.url" "$TEST_FLAKE_FILE"
+  # Block style: newtool = { url = "..."; };
+  run grep 'url = "github:someone/newtool"' "$TEST_FLAKE_FILE"
   assert_success
-  run grep "newtool.inputs.nixpkgs.follows" "$TEST_FLAKE_FILE"
+  run grep "inputs.nixpkgs.follows" "$TEST_FLAKE_FILE"
   assert_success
 }
 
