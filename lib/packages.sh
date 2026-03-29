@@ -388,15 +388,22 @@ cmd_list() {
   local nixdash_bin="$NIXDASH_BIN"
 
   # Show in fzf
-  local selection
-  selection="$(echo "$fzf_input" | fzf \
+  local tmpfile
+  tmpfile="$(mktemp)"
+
+  echo "$fzf_input" | fzf \
     --ansi \
     --height=70% \
     --layout=reverse \
     --border \
     --header "Installed packages" \
     --preview "bash '$nixdash_bin' _search-preview {1}" \
-    --preview-window "right:50%:wrap")" || return 0
+    --preview-window "right:50%:wrap" \
+  > "$tmpfile" || { rm -f "$tmpfile"; return 0; }
+
+  local selection
+  selection="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
 
   # Extract package name (first word before any markers)
   local display_name="${selection%% *}"

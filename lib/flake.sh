@@ -461,8 +461,10 @@ cmd_config() {
     local auto_label="no"
     [[ "$skip_confirmation" == "true" ]] && auto_label="yes"
 
-    local choice
-    choice="$(printf '%s\n' \
+    local tmpfile
+    tmpfile="$(mktemp)"
+
+    printf '%s\n' \
       "packages_file │ ${COLOR_VIOLET}▪${COLOR_RESET}  Packages file: $pkg_file" \
       "apply_command │ ${COLOR_VIOLET}▸${COLOR_RESET}  Apply command: $apply_cmd" \
       "flake_file    │ ${COLOR_VIOLET}◈${COLOR_RESET}  Flake file: $flake_file" \
@@ -481,7 +483,11 @@ cmd_config() {
       --preview-window "right:50%:wrap" \
       --delimiter "│" \
       --with-nth 2.. \
-    )" || return 0
+    > "$tmpfile" || { rm -f "$tmpfile"; return 0; }
+
+    local choice
+    choice="$(cat "$tmpfile")"
+    rm -f "$tmpfile"
 
     local cmd
     cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"

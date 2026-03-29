@@ -114,8 +114,10 @@ cmd_hub() {
       pkg_count="$(echo "$_PACKAGES_CACHE" | grep -c '.' || true)"
     fi
 
-    local choice
-    choice="$(printf '%s\n' \
+    local tmpfile
+    tmpfile="$(mktemp)"
+
+    printf '%s\n' \
       "list     │ ${COLOR_VIOLET}◈${COLOR_RESET}  My packages ($pkg_count)" \
       "search   │ ${COLOR_VIOLET}⊕${COLOR_RESET}  Search packages" \
       "shell    │ ${COLOR_VIOLET}»${COLOR_RESET}  Temporary shell" \
@@ -132,7 +134,11 @@ cmd_hub() {
       --preview-window "right:50%:wrap" \
       --delimiter "│" \
       --with-nth 2.. \
-    )" || return 0
+    > "$tmpfile" || { rm -f "$tmpfile"; return 0; }
+
+    local choice
+    choice="$(cat "$tmpfile")"
+    rm -f "$tmpfile"
 
     local cmd
     cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
