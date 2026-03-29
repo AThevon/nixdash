@@ -62,8 +62,12 @@ search_fzf() {
   fi
 
   if (( multiselect )); then
-    fzf_args+=(--multi --bind 'ctrl-a:toggle-all')
-    fzf_args[5]="TAB select · ENTER confirm"
+    fzf_args+=(
+      --multi
+      --bind 'tab:toggle+clear-query'
+      --bind 'ctrl-a:toggle-all'
+      --header "TAB select + clear · CTRL-A all · ENTER confirm"
+    )
   fi
 
   # Pipe nix-search-tv through awk to add ✓ markers for installed packages
