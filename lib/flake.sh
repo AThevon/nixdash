@@ -160,7 +160,7 @@ cmd_add_flake() {
     *"Test"*)
       ui_info "Launching temporary shell with $url..."
       ui_dim "Type 'exit' to leave the temporary shell."
-      nix shell "$url"
+      nix shell "$url" --no-write-lock-file
       return 0
       ;;
     *"Cancel")
