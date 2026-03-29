@@ -136,9 +136,9 @@ cmd_search() {
 
     local action
     action="$(ui_choose "« $display_name » est déjà installé :" \
-      "${COLOR_RED}✕${COLOR_RESET}  Supprimer" \
-      "${COLOR_CYAN}◎${COLOR_RESET} Voir en ligne" \
-      "${COLOR_DIM}↩${COLOR_RESET} Annuler")" || return 0
+      "✕  Supprimer" \
+      "◎  Voir en ligne" \
+      "↩  Annuler")" || return 0
 
     case "$action" in
       *"Supprimer")

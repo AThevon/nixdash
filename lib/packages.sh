@@ -429,9 +429,9 @@ cmd_list() {
   # Action menu
   local action
   action="$(ui_choose "Action pour $display_name :" \
-    "${COLOR_RED}✕${COLOR_RESET}  Supprimer" \
-    "${COLOR_CYAN}◎${COLOR_RESET} Voir en ligne" \
-    "${COLOR_DIM}↩${COLOR_RESET} Annuler")" || return 0
+    "✕  Supprimer" \
+    "◎  Voir en ligne" \
+    "↩  Annuler")" || return 0
 
   case "$action" in
     *"Supprimer")
