@@ -14,11 +14,13 @@ _search_build_installed_set() {
 # _search_preview PKG — shows package info from nix-search-tv
 _search_preview() {
   local pkg="$1"
+  [[ -z "$pkg" ]] && return 0
+
   local info
-  info="$(nix-search-tv info "$pkg" 2>/dev/null)" || true
+  info="$(nix-search-tv preview "nixpkgs/ $pkg" 2>/dev/null)" || true
 
   if [[ -z "$info" ]]; then
-    echo -e "${COLOR_RED}✗${COLOR_RESET} Package '$pkg' not found in nix-search-tv index"
+    echo "Package '$pkg' — no info available"
     return 0
   fi
 
