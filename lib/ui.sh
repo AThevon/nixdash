@@ -3,18 +3,18 @@
 # Gum wrappers and formatting helpers
 
 # ── Brand color: violet ────────────────────────────────────────
-NIXDASH_COLOR="#8B5CF6"       # hex for gum
-COLOR_VIOLET="\033[38;5;135m" # ANSI 256-color violet
+NIXDASH_COLOR="#8B5CF6"             # hex for gum
+COLOR_VIOLET=$'\033[38;5;135m'      # ANSI 256-color violet
 
-# Colors
-COLOR_GREEN="\033[32m"
-COLOR_RED="\033[31m"
-COLOR_YELLOW="\033[33m"
-COLOR_BLUE="\033[34m"
-COLOR_CYAN="\033[36m"
-COLOR_DIM="\033[2m"
-COLOR_BOLD="\033[1m"
-COLOR_RESET="\033[0m"
+# Colors (use $'...' so escape codes are real bytes, not literal strings)
+COLOR_GREEN=$'\033[32m'
+COLOR_RED=$'\033[31m'
+COLOR_YELLOW=$'\033[33m'
+COLOR_BLUE=$'\033[34m'
+COLOR_CYAN=$'\033[36m'
+COLOR_DIM=$'\033[2m'
+COLOR_BOLD=$'\033[1m'
+COLOR_RESET=$'\033[0m'
 
 # ── Logo ──────────────────────────────────────────────────────
 print_logo() {
