@@ -207,27 +207,36 @@ cmd_search() {
   local pkg_list_file
   pkg_list_file="$(mktemp)"
 
-  ui_info "Loading packages..." >&2
-  nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
-    BEGIN {
-      n = split(installed, arr, "\n")
-      for (i = 1; i <= n; i++) inst[arr[i]] = 1
-    }
-    {
-      name = $2
-      if (name in inst) printf "✓ %s\n", $0
-      else printf "○ %s\n", $0
-    }
-  ' > "$pkg_list_file"
+  local attempt
+  for attempt in 1 2 3; do
+    ui_info "Loading packages..." >&2
+    nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
+      BEGIN {
+        n = split(installed, arr, "\n")
+        for (i = 1; i <= n; i++) inst[arr[i]] = 1
+      }
+      {
+        name = $2
+        if (name in inst) printf "✓ %s\n", $0
+        else printf "○ %s\n", $0
+      }
+    ' > "$pkg_list_file"
 
-  # Verify we got packages
-  local line_count
-  line_count="$(wc -l < "$pkg_list_file")"
-  if [[ "$line_count" -lt 10 ]]; then
-    ui_error "Failed to load package list ($line_count entries)"
-    rm -f "$pkg_list_file"
-    return 1
-  fi
+    local line_count
+    line_count="$(wc -l < "$pkg_list_file")"
+    if [[ "$line_count" -ge 10 ]]; then
+      break
+    fi
+
+    if [[ $attempt -lt 3 ]]; then
+      ui_warn "Package list incomplete, retrying..." >&2
+      sleep 1
+    else
+      ui_error "Failed to load package list after 3 attempts"
+      rm -f "$pkg_list_file"
+      return 1
+    fi
+  done
 
   local tmpfile
   tmpfile="$(mktemp)"
