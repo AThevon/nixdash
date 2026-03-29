@@ -307,7 +307,157 @@ packages_format_line() {
   echo "${name}${indicator}"
 }
 
-# Legacy stub preserved for compatibility
+# _packages_do_remove FULL_NAME PKG_TYPE — remove a package with backup, diff, confirm, apply
+_packages_do_remove() {
+  local full_name="$1"
+  local pkg_type="${2:-nixpkgs}"
+
+  local pkg_file
+  pkg_file="$(config_get "packages_file")"
+
+  # Backup
+  local backup
+  backup="$(mktemp)"
+  cp "$pkg_file" "$backup"
+
+  # Remove from packages file
+  packages_remove "$full_name"
+
+  # If flake, also remove flake input
+  if [[ "$pkg_type" == "flake" ]]; then
+    local prefix="${full_name%%.*}"
+    if type flake_remove_input &>/dev/null; then
+      flake_remove_input "$prefix"
+    fi
+  fi
+
+  # Show diff
+  ui_diff "$backup" "$pkg_file"
+
+  # Check auto_apply
+  local auto_apply
+  auto_apply="$(config_get "auto_apply")"
+
+  if [[ "$auto_apply" == "true" ]]; then
+    ui_info "Application automatique..."
+  else
+    if ! ui_confirm "Appliquer les changements ?"; then
+      # Restore backup
+      cp "$backup" "$pkg_file"
+      _PACKAGES_CACHE=""
+      ui_warn "Annulé — fichier restauré"
+      rm -f "$backup"
+      return 1
+    fi
+  fi
+
+  rm -f "$backup"
+
+  # Run apply command
+  local apply_cmd
+  apply_cmd="$(config_get "apply_command")"
+  ui_info "Exécution : $apply_cmd"
+  eval "$apply_cmd"
+  ui_success "Changements appliqués"
+}
+
+# cmd_list — interactive list of installed packages with actions
 cmd_list() {
-  packages_list
+  config_ensure
+  _packages_parse
+
+  [[ -z "$_PACKAGES_CACHE" ]] && { ui_warn "Aucun package trouvé"; return 0; }
+
+  # Build fzf input
+  local fzf_input=""
+  local entry
+  while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
+    local name="${entry%%|*}"
+    local rest="${entry#*|}"
+    local type="${rest%%|*}"
+    local condition="${rest#*|}"
+    local line
+    line="$(packages_format_line "$name" "$type" "$condition")"
+    if [[ -n "$fzf_input" ]]; then
+      fzf_input+=$'\n'
+    fi
+    fzf_input+="$line"
+  done <<< "$_PACKAGES_CACHE"
+
+  # Resolve nixdash.sh path for preview
+  local nixdash_bin
+  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nixdash.sh"
+
+  # Show in fzf
+  local selection
+  selection="$(echo "$fzf_input" | fzf \
+    --ansi \
+    --header "Packages installés" \
+    --preview "bash '$nixdash_bin' _search-preview {1}" \
+    --preview-window "right:50%:wrap")" || return 0
+
+  # Extract package name (first word before any markers)
+  local display_name="${selection%% *}"
+
+  # Resolve display name back to full package name
+  local full_name="$display_name"
+  local pkg_type="nixpkgs"
+  while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
+    local name="${entry%%|*}"
+    local rest="${entry#*|}"
+    local type="${rest%%|*}"
+    local dname
+    dname="$(packages_display_name "$name")"
+    if [[ "$dname" == "$display_name" ]]; then
+      full_name="$name"
+      pkg_type="$type"
+      break
+    fi
+  done <<< "$_PACKAGES_CACHE"
+
+  # Self-protection
+  if search_is_self "$full_name"; then
+    ui_warn "Impossible de modifier nixdash depuis nixdash"
+    return 0
+  fi
+
+  # Action menu
+  local action
+  action="$(ui_choose "Action pour $display_name :" \
+    "🗑️  Supprimer" \
+    "🌐 Voir en ligne" \
+    "❌ Annuler")" || return 0
+
+  case "$action" in
+    "🗑️  Supprimer")
+      _packages_do_remove "$full_name" "$pkg_type"
+      ;;
+    "🌐 Voir en ligne")
+      if [[ "$pkg_type" == "flake" ]]; then
+        # Try to get URL from flake.nix
+        local flake_file
+        flake_file="$(config_get "flake_file")"
+        local prefix="${full_name%%.*}"
+        local url=""
+        if [[ -n "$flake_file" && -f "$flake_file" ]]; then
+          url="$(grep -oP "${prefix}\\.url\\s*=\\s*\"\\Kgithub:[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
+        fi
+        if [[ -n "$url" ]]; then
+          # Convert github:owner/repo to https://github.com/owner/repo
+          local gh_url="https://github.com/${url#github:}"
+          gh_url="${gh_url%%/*([^/])}"
+          ui_open_url "$gh_url"
+        else
+          ui_warn "URL introuvable pour $prefix"
+        fi
+      else
+        ui_open_url "https://search.nixos.org/packages?query=$display_name"
+      fi
+      ;;
+    "❌ Annuler")
+      return 0
+      ;;
+  esac
 }
