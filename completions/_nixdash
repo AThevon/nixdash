@@ -4,20 +4,23 @@ _nixdash() {
   local -a commands
   commands=(
     'list:List installed packages'
-    'search:Search for packages'
-    'shell:Enter a temporary shell with packages'
-    'add-flake:Add a flake input'
-    'config:Edit nixdash configuration'
-    'init:Initialize nixdash in a project'
+    'search:Search & install packages'
+    'shell:Temporary shell with packages'
+    'add-flake:Add external flake input'
+    'config:Configuration settings'
+    'init:Setup wizard'
   )
 
-  _arguments \
-    '(-h --help)'{-h,--help}'[Show help]' \
+  _arguments -C \
     '(-v --version)'{-v,--version}'[Show version]' \
-    '1:command:->cmds' && return 0
+    '(-h --help)'{-h,--help}'[Show help]' \
+    '1:command:->command' \
+    '*::arg:->args'
 
   case "$state" in
-    cmds) _describe -t commands 'nixdash command' commands ;;
+    command)
+      _describe -t commands 'nixdash command' commands
+      ;;
   esac
 }
 
