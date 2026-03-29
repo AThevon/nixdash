@@ -7,7 +7,8 @@ VERSION="0.1.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$SCRIPT_DIR/lib"
 if [[ ! -d "$LIB_DIR" ]]; then
-  LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
+  # Nix store layout: $out/bin/nixdash + $out/lib/nixdash/*.sh
+  LIB_DIR="$(dirname "$SCRIPT_DIR")/lib/nixdash"
 fi
 
 source "$LIB_DIR/config.sh"

@@ -10,8 +10,8 @@ stdenvNoCC.mkDerivation rec {
 
   installPhase = ''
     install -Dm755 nixdash.sh $out/bin/nixdash
-    mkdir -p $out/lib
-    cp lib/*.sh $out/lib/
+    mkdir -p $out/lib/nixdash
+    cp lib/*.sh $out/lib/nixdash/
     install -Dm644 completions/_nixdash $out/share/zsh/site-functions/_nixdash
   '';
 
