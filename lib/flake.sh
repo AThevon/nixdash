@@ -371,7 +371,7 @@ _config_preview() {
   local key="$1"
   case "$key" in
     packages_file)
-      echo "📄  Fichier packages"
+      echo -e "${COLOR_VIOLET}▪${COLOR_RESET}  Fichier packages"
       echo ""
       echo "Chemin vers le fichier .nix contenant"
       echo "la liste home.packages."
@@ -380,7 +380,7 @@ _config_preview() {
       echo "ajouter/supprimer des packages."
       ;;
     apply_command)
-      echo "🔧  Commande d'apply"
+      echo -e "${COLOR_VIOLET}▸${COLOR_RESET}  Commande d'apply"
       echo ""
       echo "Commande exécutée après chaque modification"
       echo "de packages (ajout ou suppression)."
@@ -390,7 +390,7 @@ _config_preview() {
       echo "  sudo nixos-rebuild switch --flake ."
       ;;
     flake_file)
-      echo "📦  Fichier flake"
+      echo -e "${COLOR_VIOLET}◈${COLOR_RESET}  Fichier flake"
       echo ""
       echo "Chemin vers flake.nix."
       echo ""
@@ -398,7 +398,7 @@ _config_preview() {
       echo "et détecter les packages externes."
       ;;
     auto_apply)
-      echo "✅  Apply automatique"
+      echo -e "${COLOR_GREEN}◉${COLOR_RESET}  Apply automatique"
       echo ""
       echo "Si activé, nixdash applique les changements"
       echo "immédiatement sans demander confirmation."
@@ -407,7 +407,7 @@ _config_preview() {
       echo "confirmation est demandée avant d'appliquer."
       ;;
     update_index)
-      echo "🔄  Mettre à jour l'index"
+      echo -e "${COLOR_VIOLET}↻${COLOR_RESET}  Mettre à jour l'index"
       echo ""
       echo "Télécharge la dernière version de l'index"
       echo "nix-search-tv pour la recherche de packages."
@@ -416,7 +416,7 @@ _config_preview() {
       echo "dernières versions de nixpkgs."
       ;;
     redetect)
-      echo "🔁  Relancer la détection"
+      echo -e "${COLOR_VIOLET}⟳${COLOR_RESET}  Relancer la détection"
       echo ""
       echo "Relance l'assistant de configuration"
       echo "initiale (nixdash init)."
@@ -449,13 +449,13 @@ cmd_config() {
 
     local choice
     choice="$(printf '%s\n' \
-      "packages_file │ 📄  Fichier packages : $pkg_file" \
-      "apply_command │ 🔧  Commande d'apply : $apply_cmd" \
-      "flake_file    │ 📦  Fichier flake : $flake_file" \
-      "auto_apply    │ ✅  Apply auto : $auto_label" \
-      "update_index  │ 🔄  Mettre à jour l'index nix-search-tv" \
-      "redetect      │ 🔁  Relancer la détection (nixdash init)" \
-      "back          │ ❌  Retour" \
+      "packages_file │ ${COLOR_VIOLET}▪${COLOR_RESET}  Fichier packages : $pkg_file" \
+      "apply_command │ ${COLOR_VIOLET}▸${COLOR_RESET}  Commande d'apply : $apply_cmd" \
+      "flake_file    │ ${COLOR_VIOLET}◈${COLOR_RESET}  Fichier flake : $flake_file" \
+      "auto_apply    │ ${COLOR_GREEN}◉${COLOR_RESET}  Apply auto : $auto_label" \
+      "update_index  │ ${COLOR_VIOLET}↻${COLOR_RESET}  Mettre à jour l'index nix-search-tv" \
+      "redetect      │ ${COLOR_VIOLET}⟳${COLOR_RESET}  Relancer la détection (nixdash init)" \
+      "back          │ ${COLOR_DIM}↩${COLOR_RESET}  Retour" \
     | fzf \
       --ansi \
       --no-sort \

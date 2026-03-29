@@ -29,7 +29,7 @@ _hub_preview() {
   local key="$1"
   case "$key" in
     list)
-      echo "📦  Mes packages"
+      echo -e "${COLOR_VIOLET}◈${COLOR_RESET}  Mes packages"
       echo ""
       echo "Affiche tous les packages installés dans votre"
       echo "configuration Nix avec une interface fzf."
@@ -39,7 +39,7 @@ _hub_preview() {
       echo "• Actions : supprimer, voir en ligne"
       ;;
     search)
-      echo "🔍  Rechercher un package"
+      echo -e "${COLOR_VIOLET}⊕${COLOR_RESET}  Rechercher un package"
       echo ""
       echo "Recherche en temps réel dans nixpkgs via"
       echo "nix-search-tv avec fuzzy matching."
@@ -49,7 +49,7 @@ _hub_preview() {
       echo "• Preview : description, version, homepage"
       ;;
     shell)
-      echo "🐚  Shell temporaire"
+      echo -e "${COLOR_VIOLET}»${COLOR_RESET}  Shell temporaire"
       echo ""
       echo "Crée un shell Nix temporaire avec les packages"
       echo "de votre choix (multiselect)."
@@ -59,7 +59,7 @@ _hub_preview() {
       echo "• Aucune modification de votre config"
       ;;
     add-flake)
-      echo "📥  Ajouter un flake externe"
+      echo -e "${COLOR_VIOLET}⊞${COLOR_RESET}  Ajouter un flake externe"
       echo ""
       echo "Workflow guidé pour ajouter un flake input"
       echo "externe à votre configuration."
@@ -69,7 +69,7 @@ _hub_preview() {
       echo "• Preview des modifications avant apply"
       ;;
     config)
-      echo "⚙️   Configuration"
+      echo -e "${COLOR_DIM}⚙${COLOR_RESET}  Configuration"
       echo ""
       echo "Modifier les réglages de nixdash :"
       echo ""
@@ -114,11 +114,11 @@ cmd_hub() {
 
     local choice
     choice="$(printf '%s\n' \
-      "list     │ 📦  Mes packages ($pkg_count)" \
-      "search   │ 🔍  Rechercher un package" \
-      "shell    │ 🐚  Shell temporaire" \
-      "add-flake│ 📥  Ajouter un flake externe" \
-      "config   │ ⚙️   Configuration" \
+      "list     │ ${COLOR_VIOLET}◈${COLOR_RESET}  Mes packages ($pkg_count)" \
+      "search   │ ${COLOR_VIOLET}⊕${COLOR_RESET}  Rechercher un package" \
+      "shell    │ ${COLOR_VIOLET}»${COLOR_RESET}  Shell temporaire" \
+      "add-flake│ ${COLOR_VIOLET}⊞${COLOR_RESET}  Ajouter un flake externe" \
+      "config   │ ${COLOR_DIM}⚙${COLOR_RESET}  Configuration" \
     | fzf \
       --ansi \
       --no-sort \

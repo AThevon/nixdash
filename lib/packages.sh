@@ -429,15 +429,15 @@ cmd_list() {
   # Action menu
   local action
   action="$(ui_choose "Action pour $display_name :" \
-    "🗑️  Supprimer" \
-    "🌐 Voir en ligne" \
-    "❌ Annuler")" || return 0
+    "${COLOR_RED}✕${COLOR_RESET}  Supprimer" \
+    "${COLOR_CYAN}◎${COLOR_RESET} Voir en ligne" \
+    "${COLOR_DIM}↩${COLOR_RESET} Annuler")" || return 0
 
   case "$action" in
-    "🗑️  Supprimer")
+    *"Supprimer")
       _packages_do_remove "$full_name" "$pkg_type"
       ;;
-    "🌐 Voir en ligne")
+    *"Voir en ligne")
       if [[ "$pkg_type" == "flake" ]]; then
         # Try to get URL from flake.nix
         local flake_file
@@ -459,7 +459,7 @@ cmd_list() {
         ui_open_url "https://search.nixos.org/packages?query=$display_name"
       fi
       ;;
-    "❌ Annuler")
+    *"Annuler")
       return 0
       ;;
   esac

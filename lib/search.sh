@@ -18,7 +18,7 @@ _search_preview() {
   info="$(nix-search-tv info "$pkg" 2>/dev/null)" || true
 
   if [[ -z "$info" ]]; then
-    echo "❌ Package '$pkg' introuvable dans l'index nix-search-tv"
+    echo -e "${COLOR_RED}✗${COLOR_RESET} Package '$pkg' introuvable dans l'index nix-search-tv"
     return 0
   fi
 
@@ -136,18 +136,18 @@ cmd_search() {
 
     local action
     action="$(ui_choose "« $display_name » est déjà installé :" \
-      "🗑️  Supprimer" \
-      "🌐 Voir en ligne" \
-      "❌ Annuler")" || return 0
+      "${COLOR_RED}✕${COLOR_RESET}  Supprimer" \
+      "${COLOR_CYAN}◎${COLOR_RESET} Voir en ligne" \
+      "${COLOR_DIM}↩${COLOR_RESET} Annuler")" || return 0
 
     case "$action" in
-      "🗑️  Supprimer")
+      *"Supprimer")
         _packages_do_remove "$pkg" "$pkg_type"
         ;;
-      "🌐 Voir en ligne")
+      *"Voir en ligne")
         ui_open_url "https://search.nixos.org/packages?query=$display_name"
         ;;
-      "❌ Annuler")
+      *"Annuler")
         return 0
         ;;
     esac
