@@ -266,41 +266,54 @@ cmd_add_flake() {
     return 0
   fi
 
-  # 8. Apply changes
-  local flake_backup pkg_backup
-  flake_backup="$(mktemp)"
-  cp "$flake_file" "$flake_backup"
-
+  # 8. Preview changes on temp copies (don't touch real files yet)
   local pkg_file
   pkg_file="$(config_get "packages_file")"
-  pkg_backup="$(mktemp)"
-  cp "$pkg_file" "$pkg_backup"
+
+  local flake_tmp pkg_tmp
+  flake_tmp="$(mktemp)"
+  pkg_tmp="$(mktemp)"
+  cp "$flake_file" "$flake_tmp"
+  cp "$pkg_file" "$pkg_tmp"
+
+  # Apply changes to temp copies by temporarily swapping config paths
+  local orig_flake_file="$flake_file"
+  local orig_pkg_file="$pkg_file"
+  config_set "flake_file" "$flake_tmp"
+  config_set "packages_file" "$pkg_tmp"
 
   flake_add_input "$input_name" "$url"
   _flake_add_output_arg "$input_name"
   flake_add_inherit "$input_name"
   packages_add "$full_pkg"
 
-  # 9. Show diffs
+  # Restore config paths
+  config_set "flake_file" "$orig_flake_file"
+  config_set "packages_file" "$orig_pkg_file"
+
+  # 9. Show diffs (original vs temp)
   ui_info "Changes in flake.nix:"
-  ui_diff "$flake_backup" "$flake_file"
-  ui_info "Changes in $(basename "$pkg_file"):"
-  ui_diff "$pkg_backup" "$pkg_file"
+  ui_diff "$orig_flake_file" "$flake_tmp"
+  ui_info "Changes in $(basename "$orig_pkg_file"):"
+  ui_diff "$orig_pkg_file" "$pkg_tmp"
 
-  rm -f "$flake_backup" "$pkg_backup"
-
-  # 10. Apply
+  # 10. Confirm — only write to real files if user says yes
   local skip_confirmation
   skip_confirmation="$(config_get "skip_confirmation")"
 
-  if [[ "$skip_confirmation" == "true" ]]; then
-    ui_info "Auto-applying..."
-  else
+  if [[ "$skip_confirmation" != "true" ]]; then
     if ! ui_confirm "Apply changes?"; then
-      ui_warn "Changes written but not applied"
+      rm -f "$flake_tmp" "$pkg_tmp"
+      ui_warn "Cancelled — no files modified"
       return 0
     fi
   fi
+
+  # Write temp copies to real files
+  cp "$flake_tmp" "$orig_flake_file"
+  cp "$pkg_tmp" "$orig_pkg_file"
+  rm -f "$flake_tmp" "$pkg_tmp"
+  _PACKAGES_CACHE=""
 
   local apply_cmd
   apply_cmd="$(config_get "apply_command")"
