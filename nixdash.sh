@@ -18,6 +18,64 @@ source "$LIB_DIR/search.sh"
 source "$LIB_DIR/shell.sh"
 source "$LIB_DIR/flake.sh"
 
+# ── Hub preview (called as subprocess by fzf) ─────────────────
+_hub_preview() {
+  local key="$1"
+  case "$key" in
+    list)
+      echo "📦  Mes packages"
+      echo ""
+      echo "Affiche tous les packages installés dans votre"
+      echo "configuration Nix avec une interface fzf."
+      echo ""
+      echo "• Packages nixpkgs, flake inputs, conditionnels"
+      echo "• Preview avec description et version"
+      echo "• Actions : supprimer, voir en ligne"
+      ;;
+    search)
+      echo "🔍  Rechercher un package"
+      echo ""
+      echo "Recherche en temps réel dans nixpkgs via"
+      echo "nix-search-tv avec fuzzy matching."
+      echo ""
+      echo "• Indicateur ✓ pour les packages déjà installés"
+      echo "• Sélection → install dans votre config"
+      echo "• Preview : description, version, homepage"
+      ;;
+    shell)
+      echo "🐚  Shell temporaire"
+      echo ""
+      echo "Crée un shell Nix temporaire avec les packages"
+      echo "de votre choix (multiselect)."
+      echo ""
+      echo "• Sélectionnez plusieurs packages avec TAB"
+      echo "• Le shell disparaît à la fermeture (exit)"
+      echo "• Aucune modification de votre config"
+      ;;
+    add-flake)
+      echo "📥  Ajouter un flake externe"
+      echo ""
+      echo "Workflow guidé pour ajouter un flake input"
+      echo "externe à votre configuration."
+      echo ""
+      echo "• Résolution automatique de l'URL"
+      echo "• Édite flake.nix + packages.nix"
+      echo "• Preview des modifications avant apply"
+      ;;
+    config)
+      echo "⚙️   Configuration"
+      echo ""
+      echo "Modifier les réglages de nixdash :"
+      echo ""
+      echo "• Fichier packages"
+      echo "• Commande d'apply"
+      echo "• Fichier flake"
+      echo "• Toggle apply automatique"
+      echo "• Mettre à jour l'index nix-search-tv"
+      ;;
+  esac
+}
+
 # ── Hub ────────────────────────────────────────────────────────
 cmd_hub() {
   # If not initialized, offer to run init
@@ -25,49 +83,49 @@ cmd_hub() {
     echo -e "${COLOR_BOLD}nixdash${COLOR_RESET} n'est pas encore configuré." >&2
     if ui_confirm "Lancer la configuration initiale ?"; then
       cmd_init
-      # Re-check after init
       config_is_initialized || return 0
     else
       return 0
     fi
   fi
 
+  local nixdash_bin
+  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
   while true; do
     # Count packages
     _packages_parse
     local pkg_count=0
     if [[ -n "$_PACKAGES_CACHE" ]]; then
-      pkg_count="$(echo "$_PACKAGES_CACHE" | wc -l)"
+      pkg_count="$(echo "$_PACKAGES_CACHE" | grep -c '.' || true)"
     fi
 
     local choice
-    choice="$(ui_choose "nixdash" \
-      "📦 Mes packages ($pkg_count)" \
-      "🔍 Rechercher un package" \
-      "🐚 Shell temporaire" \
-      "📥 Ajouter un flake externe" \
-      "⚙️  Configuration" \
-      "❌ Quitter")" || return 0
+    choice="$(printf '%s\n' \
+      "list     │ 📦  Mes packages ($pkg_count)" \
+      "search   │ 🔍  Rechercher un package" \
+      "shell    │ 🐚  Shell temporaire" \
+      "add-flake│ 📥  Ajouter un flake externe" \
+      "config   │ ⚙️   Configuration" \
+    | fzf \
+      --ansi \
+      --no-sort \
+      --header "nixdash $VERSION" \
+      --preview "bash '$nixdash_bin' _hub-preview {1}" \
+      --preview-window "right:50%:wrap" \
+      --delimiter "│" \
+      --with-nth 2.. \
+    )" || return 0
 
-    case "$choice" in
-      "📦 Mes packages"*)
-        cmd_list
-        ;;
-      "🔍 Rechercher"*)
-        cmd_search
-        ;;
-      "🐚 Shell"*)
-        cmd_shell
-        ;;
-      "📥 Ajouter"*)
-        cmd_add_flake
-        ;;
-      "⚙️  Configuration"*)
-        cmd_config
-        ;;
-      "❌ Quitter")
-        return 0
-        ;;
+    local cmd
+    cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
+
+    case "$cmd" in
+      list)      cmd_list ;;
+      search)    cmd_search ;;
+      shell)     cmd_shell ;;
+      add-flake) cmd_add_flake ;;
+      config)    cmd_config ;;
     esac
   done
 }
@@ -128,6 +186,9 @@ main() {
       ;;
     _search-preview)
       shift; _search_preview "$@"
+      ;;
+    _hub-preview)
+      shift; _hub_preview "$@"
       ;;
     *)
       echo "nixdash: unknown command '$cmd'" >&2
