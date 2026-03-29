@@ -518,91 +518,167 @@ cmd_list() {
   tmpfile="$(mktemp)"
 
   echo "$fzf_input" | fzf \
+    --multi \
     --ansi \
     --height=70% \
     --layout=reverse \
     --border \
     --no-sort \
-    --header "Installed packages" \
+    --header "TAB select multiple · ENTER confirm · ESC cancel" \
     --preview "bash '$nixdash_bin' _list-preview {1} {2}" \
     --preview-window "right:50%:wrap" \
   > "$tmpfile" || { rm -f "$tmpfile"; return 0; }
 
-  local selection
-  selection="$(cat "$tmpfile")"
+  # Parse all selected lines
+  local selected_names=()
+  local selected_full=()
+  local selected_types=()
+  local line
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    # Skip separators
+    [[ "$line" == "──"* ]] && continue
+
+    local display_name
+    if [[ "$line" == "⚡ "* ]]; then
+      display_name="${line#⚡ }"
+      display_name="${display_name%% *}"
+    else
+      display_name="${line%% *}"
+    fi
+
+    # Resolve to full name
+    local full_name="$display_name" pkg_type="nixpkgs"
+    while IFS= read -r entry; do
+      [[ -z "$entry" ]] && continue
+      local name="${entry%%|*}"
+      local rest="${entry#*|}"
+      local type="${rest%%|*}"
+      local dname
+      dname="$(packages_display_name "$name")"
+      if [[ "$dname" == "$display_name" ]]; then
+        full_name="$name"
+        pkg_type="$type"
+        break
+      fi
+    done <<< "$_PACKAGES_CACHE"
+
+    selected_names+=("$display_name")
+    selected_full+=("$full_name")
+    selected_types+=("$pkg_type")
+  done < "$tmpfile"
   rm -f "$tmpfile"
 
-  # Skip separator lines
-  [[ "$selection" == "──"* ]] && return 0
+  [[ ${#selected_names[@]} -eq 0 ]] && return 0
 
-  # Extract package name
-  local display_name
-  if [[ "$selection" == "⚡ "* ]]; then
-    display_name="${selection#⚡ }"
-    display_name="${display_name%% *}"
-  else
-    display_name="${selection%% *}"
-  fi
+  # Single selection — show action menu (remove, view online, cancel)
+  if [[ ${#selected_names[@]} -eq 1 ]]; then
+    local display_name="${selected_names[0]}"
+    local full_name="${selected_full[0]}"
+    local pkg_type="${selected_types[0]}"
 
-  # Resolve display name back to full package name
-  local full_name="$display_name"
-  local pkg_type="nixpkgs"
-  while IFS= read -r entry; do
-    [[ -z "$entry" ]] && continue
-    local name="${entry%%|*}"
-    local rest="${entry#*|}"
-    local type="${rest%%|*}"
-    local dname
-    dname="$(packages_display_name "$name")"
-    if [[ "$dname" == "$display_name" ]]; then
-      full_name="$name"
-      pkg_type="$type"
-      break
+    if search_is_self "$full_name"; then
+      ui_warn "Cannot modify nixdash from within nixdash"
+      return 0
     fi
-  done <<< "$_PACKAGES_CACHE"
 
-  # Self-protection
-  if search_is_self "$full_name"; then
-    ui_warn "Cannot modify nixdash from within nixdash"
+    local action
+    action="$(ui_choose "Action for $display_name:" \
+      "✕  Remove" \
+      "◎  View online" \
+      "↩  Cancel")" || return 0
+
+    case "$action" in
+      *"Remove")
+        _packages_do_remove "$full_name" "$pkg_type"
+        return $?
+        ;;
+      *"View online")
+        if [[ "$pkg_type" == "flake" ]]; then
+          local flake_file
+          flake_file="$(config_get "flake_file")"
+          local prefix="${full_name%%.*}"
+          local url=""
+          if [[ -n "$flake_file" && -f "$flake_file" ]]; then
+            url="$(grep -oP "${prefix}\\.url\\s*=\\s*\"\\Kgithub:[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
+          fi
+          if [[ -n "$url" ]]; then
+            local gh_url="https://github.com/${url#github:}"
+            ui_open_url "$gh_url"
+          else
+            ui_warn "URL not found for $prefix"
+          fi
+        else
+          ui_open_url "https://search.nixos.org/packages?query=$display_name"
+        fi
+        ;;
+    esac
     return 0
   fi
 
-  # Action menu
-  local action
-  action="$(ui_choose "Action for $display_name:" \
-    "✕  Remove" \
-    "◎  View online" \
-    "↩  Cancel")" || return 0
+  # Multiple selection — batch remove
+  # Filter out self-protected packages
+  local to_remove_names=() to_remove_full=() to_remove_types=()
+  for i in "${!selected_names[@]}"; do
+    if search_is_self "${selected_full[$i]}"; then
+      ui_warn "Skipping nixdash (cannot remove itself)"
+    else
+      to_remove_names+=("${selected_names[$i]}")
+      to_remove_full+=("${selected_full[$i]}")
+      to_remove_types+=("${selected_types[$i]}")
+    fi
+  done
 
-  case "$action" in
-    *"Remove")
-      _packages_do_remove "$full_name" "$pkg_type"
-      return $?
-      ;;
-    *"View online")
-      if [[ "$pkg_type" == "flake" ]]; then
-        # Try to get URL from flake.nix
-        local flake_file
-        flake_file="$(config_get "flake_file")"
-        local prefix="${full_name%%.*}"
-        local url=""
-        if [[ -n "$flake_file" && -f "$flake_file" ]]; then
-          url="$(grep -oP "${prefix}\\.url\\s*=\\s*\"\\Kgithub:[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
-        fi
-        if [[ -n "$url" ]]; then
-          # Convert github:owner/repo to https://github.com/owner/repo
-          local gh_url="https://github.com/${url#github:}"
-          gh_url="${gh_url%%/*([^/])}"
-          ui_open_url "$gh_url"
-        else
-          ui_warn "URL not found for $prefix"
-        fi
-      else
-        ui_open_url "https://search.nixos.org/packages?query=$display_name"
-      fi
-      ;;
-    *"Cancel")
-      return 0
-      ;;
-  esac
+  [[ ${#to_remove_names[@]} -eq 0 ]] && return 0
+
+  echo >&2
+  ui_info "Packages to remove (${#to_remove_names[@]}):"
+  for name in "${to_remove_names[@]}"; do
+    echo -e "  ${COLOR_RED}✕${COLOR_RESET} $name" >&2
+  done
+  echo >&2
+
+  local pkg_file
+  pkg_file="$(config_get "packages_file")"
+  local flake_file
+  flake_file="$(config_get "flake_file")"
+
+  local backup_pkg backup_flake
+  backup_pkg="$(mktemp)"
+  backup_flake="$(mktemp)"
+  cp "$pkg_file" "$backup_pkg"
+  cp "$flake_file" "$backup_flake"
+
+  for i in "${!to_remove_full[@]}"; do
+    packages_remove "${to_remove_full[$i]}"
+    if [[ "${to_remove_types[$i]}" == "flake" ]]; then
+      local prefix="${to_remove_full[$i]%%.*}"
+      flake_remove_input "$prefix" 2>/dev/null || true
+    fi
+  done
+
+  ui_info "Changes in packages.nix:"
+  ui_diff "$backup_pkg" "$pkg_file"
+  if ! diff -q "$backup_flake" "$flake_file" &>/dev/null; then
+    ui_info "Changes in flake.nix:"
+    ui_diff "$backup_flake" "$flake_file"
+  fi
+
+  if ! ui_confirm "Remove ${#to_remove_names[@]} package(s)?"; then
+    cp "$backup_pkg" "$pkg_file"
+    cp "$backup_flake" "$flake_file"
+    _PACKAGES_CACHE=""
+    ui_warn "Cancelled — files restored"
+    rm -f "$backup_pkg" "$backup_flake"
+    return 0
+  fi
+
+  rm -f "$backup_pkg" "$backup_flake"
+
+  local apply_cmd
+  apply_cmd="$(config_get "apply_command")"
+  ui_info "Running: $apply_cmd"
+  eval "$apply_cmd"
+  ui_success "${#to_remove_names[@]} package(s) removed"
+  return 10
 }
