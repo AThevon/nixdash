@@ -78,6 +78,20 @@ search_fzf() {
     )
   fi
 
+  # Check if index exists, fetch if empty
+  local pkg_count
+  pkg_count="$(nix-search-tv print 2>/dev/null | head -1 | wc -l)"
+  if [[ "$pkg_count" -eq 0 ]]; then
+    ui_warn "nix-search-tv index is empty"
+    if ui_confirm "Download package index now? (this may take a moment)"; then
+      ui_spin "Fetching nix-search-tv index..." nix-search-tv fetch
+      ui_success "Index ready"
+    else
+      ui_error "Cannot search without an index"
+      return 1
+    fi
+  fi
+
   # Pipe nix-search-tv through awk to add ✓ markers for installed packages
   local selection
   selection="$(nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
