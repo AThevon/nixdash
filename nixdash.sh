@@ -67,6 +67,9 @@ main() {
     init)
       shift; cmd_init "$@"
       ;;
+    _search-preview)
+      shift; _search_preview "$@"
+      ;;
     *)
       echo "nixdash: unknown command '$cmd'" >&2
       usage
