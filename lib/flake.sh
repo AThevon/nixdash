@@ -367,8 +367,75 @@ cmd_init() {
   echo -e "\n${COLOR_GREEN}nixdash est prêt !${COLOR_RESET} Lancez ${COLOR_BOLD}nixdash${COLOR_RESET} pour commencer.\n" >&2
 }
 
+_config_preview() {
+  local key="$1"
+  case "$key" in
+    packages_file)
+      echo "📄  Fichier packages"
+      echo ""
+      echo "Chemin vers le fichier .nix contenant"
+      echo "la liste home.packages."
+      echo ""
+      echo "nixdash lit et modifie ce fichier pour"
+      echo "ajouter/supprimer des packages."
+      ;;
+    apply_command)
+      echo "🔧  Commande d'apply"
+      echo ""
+      echo "Commande exécutée après chaque modification"
+      echo "de packages (ajout ou suppression)."
+      echo ""
+      echo "Exemples :"
+      echo "  home-manager switch --flake ~/.dotfiles"
+      echo "  sudo nixos-rebuild switch --flake ."
+      ;;
+    flake_file)
+      echo "📦  Fichier flake"
+      echo ""
+      echo "Chemin vers flake.nix."
+      echo ""
+      echo "Utilisé pour ajouter des flake inputs"
+      echo "et détecter les packages externes."
+      ;;
+    auto_apply)
+      echo "✅  Apply automatique"
+      echo ""
+      echo "Si activé, nixdash applique les changements"
+      echo "immédiatement sans demander confirmation."
+      echo ""
+      echo "Si désactivé, un diff est affiché et une"
+      echo "confirmation est demandée avant d'appliquer."
+      ;;
+    update_index)
+      echo "🔄  Mettre à jour l'index"
+      echo ""
+      echo "Télécharge la dernière version de l'index"
+      echo "nix-search-tv pour la recherche de packages."
+      echo ""
+      echo "À faire régulièrement pour avoir les"
+      echo "dernières versions de nixpkgs."
+      ;;
+    redetect)
+      echo "🔁  Relancer la détection"
+      echo ""
+      echo "Relance l'assistant de configuration"
+      echo "initiale (nixdash init)."
+      echo ""
+      echo "Utile si vous avez déplacé vos fichiers"
+      echo "ou changé de configuration Nix."
+      ;;
+    back)
+      echo "Retour au hub"
+      ;;
+  esac
+}
+
 cmd_config() {
   config_ensure
+
+  # Resolve nixdash.sh path for preview
+  local nixdash_bin
+  nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nixdash.sh"
 
   while true; do
     local pkg_file flake_file apply_cmd auto_apply
@@ -381,35 +448,50 @@ cmd_config() {
     [[ "$auto_apply" == "true" ]] && auto_label="oui"
 
     local choice
-    choice="$(ui_choose "Configuration nixdash" \
-      "📄 Fichier packages : $pkg_file" \
-      "🔧 Commande d'apply : $apply_cmd" \
-      "📦 Fichier flake : $flake_file" \
-      "✅ Apply auto : $auto_label" \
-      "🔄 Mettre à jour l'index nix-search-tv" \
-      "🔁 Relancer la détection (nixdash init)" \
-      "❌ Retour")" || return 0
+    choice="$(printf '%s\n' \
+      "packages_file │ 📄  Fichier packages : $pkg_file" \
+      "apply_command │ 🔧  Commande d'apply : $apply_cmd" \
+      "flake_file    │ 📦  Fichier flake : $flake_file" \
+      "auto_apply    │ ✅  Apply auto : $auto_label" \
+      "update_index  │ 🔄  Mettre à jour l'index nix-search-tv" \
+      "redetect      │ 🔁  Relancer la détection (nixdash init)" \
+      "back          │ ❌  Retour" \
+    | fzf \
+      --ansi \
+      --no-sort \
+      --height=50% \
+      --layout=reverse \
+      --border \
+      --header "Configuration nixdash" \
+      --preview "bash '$nixdash_bin' _config-preview {1}" \
+      --preview-window "right:50%:wrap" \
+      --delimiter "│" \
+      --with-nth 2.. \
+    )" || return 0
 
-    case "$choice" in
-      "📄 Fichier packages"*)
+    local cmd
+    cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
+
+    case "$cmd" in
+      packages_file)
         local new_val
         new_val="$(ui_input "Chemin du fichier packages" "$pkg_file")" || continue
         [[ -n "$new_val" ]] && config_set "packages_file" "$new_val"
         ui_success "Fichier packages mis à jour"
         ;;
-      "🔧 Commande d'apply"*)
+      apply_command)
         local new_val
         new_val="$(ui_input "Commande d'apply" "$apply_cmd")" || continue
         [[ -n "$new_val" ]] && config_set "apply_command" "$new_val"
         ui_success "Commande d'apply mise à jour"
         ;;
-      "📦 Fichier flake"*)
+      flake_file)
         local new_val
         new_val="$(ui_input "Chemin du fichier flake.nix" "$flake_file")" || continue
         [[ -n "$new_val" ]] && config_set "flake_file" "$new_val"
         ui_success "Fichier flake mis à jour"
         ;;
-      "✅ Apply auto"*)
+      auto_apply)
         if [[ "$auto_apply" == "true" ]]; then
           config_set "auto_apply" "false"
           ui_success "Apply auto désactivé"
@@ -418,7 +500,7 @@ cmd_config() {
           ui_success "Apply auto activé"
         fi
         ;;
-      "🔄 Mettre à jour"*)
+      update_index)
         if command -v nix-search-tv &>/dev/null; then
           ui_spin "Mise à jour de l'index nix-search-tv..." nix-search-tv fetch
           ui_success "Index mis à jour"
@@ -426,11 +508,11 @@ cmd_config() {
           ui_error "nix-search-tv n'est pas installé"
         fi
         ;;
-      "🔁 Relancer"*)
+      redetect)
         cmd_init
         return 0
         ;;
-      "❌ Retour")
+      back)
         return 0
         ;;
     esac

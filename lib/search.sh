@@ -50,6 +50,9 @@ search_fzf() {
   # Build fzf args
   local fzf_args=(
     --ansi
+    --height=70%
+    --layout=reverse
+    --border
     --header "Recherche de packages Nix"
     --preview "bash '$nixdash_bin' _search-preview {2}"
     --preview-window "right:50%:wrap"

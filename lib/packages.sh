@@ -393,6 +393,9 @@ cmd_list() {
   local selection
   selection="$(echo "$fzf_input" | fzf \
     --ansi \
+    --height=70% \
+    --layout=reverse \
+    --border \
     --header "Packages installés" \
     --preview "bash '$nixdash_bin' _search-preview {1}" \
     --preview-window "right:50%:wrap")" || return 0

@@ -16,6 +16,12 @@ COLOR_DIM="\033[2m"
 COLOR_BOLD="\033[1m"
 COLOR_RESET="\033[0m"
 
+# ── Logo ──────────────────────────────────────────────────────
+print_logo() {
+  [[ -n "${ASSETS_DIR:-}" && -f "$ASSETS_DIR/logo.ansi" ]] || return 0
+  echo -e "$(cat "$ASSETS_DIR/logo.ansi")" >&2
+}
+
 ui_info() {
   echo -e "${COLOR_VIOLET}ℹ${COLOR_RESET} $*" >&2
 }

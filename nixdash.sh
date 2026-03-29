@@ -11,6 +11,11 @@ if [[ ! -d "$LIB_DIR" ]]; then
   LIB_DIR="$(dirname "$SCRIPT_DIR")/lib/nixdash"
 fi
 
+ASSETS_DIR="$SCRIPT_DIR/assets"
+if [[ ! -d "$ASSETS_DIR" ]]; then
+  ASSETS_DIR="$(dirname "$SCRIPT_DIR")/assets"
+fi
+
 source "$LIB_DIR/config.sh"
 source "$LIB_DIR/ui.sh"
 source "$LIB_DIR/packages.sh"
@@ -89,8 +94,14 @@ cmd_hub() {
     fi
   fi
 
+  print_logo
+
   local nixdash_bin
   nixdash_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+  # Build styled header
+  local header
+  header="$(printf '\033[1;38;5;135mnixdash\033[0m \033[2mv%s\033[0m │ \033[2mESC quit\033[0m' "$VERSION")"
 
   while true; do
     # Count packages
@@ -110,7 +121,10 @@ cmd_hub() {
     | fzf \
       --ansi \
       --no-sort \
-      --header "nixdash $VERSION" \
+      --height=50% \
+      --layout=reverse \
+      --border \
+      --header "$header" \
       --preview "bash '$nixdash_bin' _hub-preview {1}" \
       --preview-window "right:50%:wrap" \
       --delimiter "│" \
@@ -189,6 +203,9 @@ main() {
       ;;
     _hub-preview)
       shift; _hub_preview "$@"
+      ;;
+    _config-preview)
+      shift; _config_preview "$@"
       ;;
     *)
       echo "nixdash: unknown command '$cmd'" >&2
