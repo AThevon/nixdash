@@ -1,6 +1,10 @@
-# nixdash
+<p align="center">
+  <img src="assets/nixdash.png" alt="nixdash" width="160" />
+</p>
 
-TUI for managing Nix packages. Search, install, remove, and create temporary shells — all from one interactive interface.
+<h1 align="center">nixdash</h1>
+
+<p align="center">TUI for managing Nix packages. Search, install, remove, and create temporary shells — all from one interactive interface.</p>
 
 ## Features
 
