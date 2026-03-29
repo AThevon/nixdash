@@ -152,45 +152,56 @@ cmd_search() {
         ;;
     esac
   else
-    # Not installed — add it
-    local pkg_file
-    pkg_file="$(config_get "packages_file")"
+    # Not installed — choose action
+    local action
+    action="$(ui_choose "$pkg :" \
+      "⊕  Installer" \
+      "»  Tester dans un shell" \
+      "↩  Annuler")" || return 0
 
-    # Backup
-    local backup
-    backup="$(mktemp)"
-    cp "$pkg_file" "$backup"
+    case "$action" in
+      *"Installer")
+        local pkg_file
+        pkg_file="$(config_get "packages_file")"
 
-    # Add package
-    packages_add "$pkg"
+        local backup
+        backup="$(mktemp)"
+        cp "$pkg_file" "$backup"
 
-    # Show diff
-    ui_diff "$backup" "$pkg_file"
+        packages_add "$pkg"
+        ui_diff "$backup" "$pkg_file"
 
-    # Check auto_apply
-    local auto_apply
-    auto_apply="$(config_get "auto_apply")"
+        local auto_apply
+        auto_apply="$(config_get "auto_apply")"
 
-    if [[ "$auto_apply" == "true" ]]; then
-      ui_info "Application automatique..."
-    else
-      if ! ui_confirm "Installer $pkg ?"; then
-        # Restore backup
-        cp "$backup" "$pkg_file"
-        _PACKAGES_CACHE=""
-        ui_warn "Annulé — fichier restauré"
+        if [[ "$auto_apply" == "true" ]]; then
+          ui_info "Application automatique..."
+        else
+          if ! ui_confirm "Installer $pkg ?"; then
+            cp "$backup" "$pkg_file"
+            _PACKAGES_CACHE=""
+            ui_warn "Annulé — fichier restauré"
+            rm -f "$backup"
+            return 1
+          fi
+        fi
+
         rm -f "$backup"
-        return 1
-      fi
-    fi
 
-    rm -f "$backup"
-
-    # Run apply command
-    local apply_cmd
-    apply_cmd="$(config_get "apply_command")"
-    ui_info "Exécution : $apply_cmd"
-    eval "$apply_cmd"
-    ui_success "$pkg installé"
+        local apply_cmd
+        apply_cmd="$(config_get "apply_command")"
+        ui_info "Exécution : $apply_cmd"
+        eval "$apply_cmd"
+        ui_success "$pkg installé"
+        ;;
+      *"Tester"*)
+        ui_info "Lancement d'un shell temporaire avec $pkg..."
+        ui_dim "Tapez 'exit' pour quitter le shell temporaire."
+        nix shell "nixpkgs#$pkg"
+        ;;
+      *"Annuler")
+        return 0
+        ;;
+    esac
   fi
 }
