@@ -80,15 +80,15 @@ search_fzf() {
   fi
 
   # Pipe nix-search-tv through awk to add ✓ markers for installed packages
-  local tmpfile
+  local tmpfile installed_file
   tmpfile="$(mktemp)"
+  installed_file="$(mktemp)"
+  echo "$installed_set" > "$installed_file"
 
-  nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
+  nix-search-tv print 2>/dev/null | awk -v installed_file="$installed_file" '
     BEGIN {
-      n = split(installed, arr, "\n")
-      for (i = 1; i <= n; i++) {
-        inst[arr[i]] = 1
-      }
+      while ((getline line < installed_file) > 0) inst[line] = 1
+      close(installed_file)
     }
     {
       name = $2
@@ -98,7 +98,9 @@ search_fzf() {
         printf "○ %s\n", $0
       }
     }
-  ' | fzf "${fzf_args[@]}" > "$tmpfile" || { rm -f "$tmpfile"; return 1; }
+  ' | fzf "${fzf_args[@]}" > "$tmpfile" || { rm -f "$tmpfile" "$installed_file"; return 1; }
+
+  rm -f "$installed_file"
 
   local selection
   selection="$(cat "$tmpfile")"
@@ -204,16 +206,18 @@ cmd_search() {
   installed_set="$(_search_build_installed_set)"
   local nixdash_bin="$NIXDASH_BIN"
 
-  local pkg_list_file
+  local pkg_list_file installed_file
   pkg_list_file="$(mktemp)"
+  installed_file="$(mktemp)"
+  echo "$installed_set" > "$installed_file"
 
   local attempt
   for attempt in 1 2 3; do
     ui_info "Loading packages..." >&2
-    nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
+    nix-search-tv print 2>/dev/null | awk -v installed_file="$installed_file" '
       BEGIN {
-        n = split(installed, arr, "\n")
-        for (i = 1; i <= n; i++) inst[arr[i]] = 1
+        while ((getline line < installed_file) > 0) inst[line] = 1
+        close(installed_file)
       }
       /^nixpkgs\// {
         name = $2
@@ -233,7 +237,7 @@ cmd_search() {
       sleep 1
     else
       ui_error "Failed to load package list after 3 attempts"
-      rm -f "$pkg_list_file"
+      rm -f "$pkg_list_file" "$installed_file"
       return 1
     fi
   done
@@ -256,7 +260,7 @@ cmd_search() {
     < "$pkg_list_file" > "$tmpfile" 2>/dev/null
 
   local exit_code=$?
-  rm -f "$pkg_list_file"
+  rm -f "$pkg_list_file" "$installed_file"
 
   if [[ $exit_code -ne 0 ]]; then
     rm -f "$tmpfile"
