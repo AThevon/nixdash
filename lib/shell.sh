@@ -38,16 +38,18 @@ cmd_shell() {
 
   local nixdash_bin="$NIXDASH_BIN"
 
-  local pkg_list_file
+  local pkg_list_file installed_file
   pkg_list_file="$(mktemp)"
+  installed_file="$(mktemp)"
+  echo "$installed_set" > "$installed_file"
 
   local attempt
   for attempt in 1 2 3; do
     ui_info "Loading packages..." >&2
-    nix-search-tv print 2>/dev/null | awk -v installed="$installed_set" '
+    nix-search-tv print 2>/dev/null | awk -v installed_file="$installed_file" '
       BEGIN {
-        n = split(installed, arr, "\n")
-        for (i = 1; i <= n; i++) inst[arr[i]] = 1
+        while ((getline line < installed_file) > 0) inst[line] = 1
+        close(installed_file)
       }
       /^nixpkgs\// {
         name = $2
@@ -67,7 +69,7 @@ cmd_shell() {
       sleep 1
     else
       ui_error "Failed to load package list after 3 attempts"
-      rm -f "$pkg_list_file"
+      rm -f "$pkg_list_file" "$installed_file"
       return 1
     fi
   done
@@ -127,7 +129,7 @@ cmd_shell() {
 
     case "$action" in
       *"Launch"*)
-        rm -f "$pkg_list_file"
+        rm -f "$pkg_list_file" "$installed_file"
         local nix_args=()
         for pkg in "${selected[@]}"; do
           nix_args+=("nixpkgs#$pkg")
@@ -147,5 +149,5 @@ cmd_shell() {
     esac
   done
 
-  rm -f "$pkg_list_file"
+  rm -f "$pkg_list_file" "$installed_file"
 }
