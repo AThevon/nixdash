@@ -24,6 +24,7 @@
 - **Install / Remove** with diff preview — multiselect batch operations
 - **Temporary shells** — test packages before installing
 - **External flakes** — guided workflow to add/remove flake inputs
+- **Keyboard shortcuts** — `^L` `^S` `^T` `^F` on the hub for instant navigation
 - **Configurable** — works with Home Manager, NixOS, or any Nix flake setup
 
 ## Install
