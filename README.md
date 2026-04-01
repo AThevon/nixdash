@@ -6,7 +6,14 @@
 
 <p align="center">
   <strong>TUI for managing Nix packages</strong><br>
-  Search, install, remove, and create temporary shells — all from one interactive interface.
+  Search, install, remove, and create temporary shells, all from one interactive interface.
+</p>
+
+<p align="center">
+  <a href="https://nixdash.vercel.app">Website</a> &middot;
+  <a href="https://nixdash.vercel.app/docs">Docs</a> &middot;
+  <a href="https://github.com/AThevon/nixdash/releases">Releases</a> &middot;
+  <a href="https://github.com/AThevon/nixdash/issues">Issues</a>
 </p>
 
 <p align="center">
@@ -21,11 +28,11 @@
 
 - **Browse** installed packages grouped by type (flakes, nixpkgs, platform-specific)
 - **Search** 177k+ nixpkgs with real-time fuzzy search
-- **Install / Remove** with diff preview — multiselect batch operations
-- **Temporary shells** — test packages before installing
-- **External flakes** — guided workflow to add/remove flake inputs
-- **Keyboard shortcuts** — `^L` `^S` `^T` `^F` on the hub for instant navigation
-- **Configurable** — works with Home Manager, NixOS, or any Nix flake setup
+- **Install / Remove** with diff preview and multiselect batch operations
+- **Temporary shells** to test packages before installing
+- **External flakes** with guided workflow to add/remove flake inputs
+- **Keyboard shortcuts** for instant navigation (`^L` `^S` `^T` `^F`)
+- **Configurable** - works with Home Manager, NixOS, or any Nix flake setup
 
 ## Install
 
@@ -60,7 +67,7 @@ nixdash init         # Setup wizard
 
 ## Dependencies
 
-Injected automatically via Nix — no manual setup needed.
+Injected automatically via Nix - no manual setup needed.
 
 [fzf](https://github.com/junegunn/fzf) · [gum](https://github.com/charmbracelet/gum) · [jq](https://github.com/jqlang/jq) · [nix-search-tv](https://github.com/3timeslazy/nix-search-tv)
 
