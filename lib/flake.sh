@@ -568,6 +568,7 @@ cmd_config() {
       --layout=reverse \
       --border \
       --header "nixdash settings" \
+      --footer "ENTER select · ESC back" \
       --preview "bash '$nixdash_bin' _config-preview {1}" \
       --preview-window "right:50%:wrap" \
       --delimiter "│" \

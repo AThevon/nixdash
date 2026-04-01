@@ -524,7 +524,8 @@ cmd_list() {
     --layout=reverse \
     --border \
     --no-sort \
-    --header "TAB select multiple · ENTER confirm · ESC cancel" \
+    --header "Installed packages" \
+    --footer "TAB select · ENTER confirm · ESC cancel" \
     --preview "bash '$nixdash_bin' _list-preview {1} {2}" \
     --preview-window "right:50%:wrap" \
   > "$tmpfile" || { rm -f "$tmpfile"; return 0; }

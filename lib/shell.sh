@@ -87,7 +87,8 @@ cmd_shell() {
       --border \
       --delimiter " " \
       --with-nth "1,3.." \
-      --header "TAB select · ENTER confirm · ESC cancel" \
+      --header "Temporary shell" \
+      --footer "TAB select · ENTER confirm · ESC cancel" \
       --preview "bash '$nixdash_bin' _search-preview {3}" \
       --preview-window "right:50%:wrap" \
       < "$pkg_list_file" > "$tmpfile" 2>/dev/null

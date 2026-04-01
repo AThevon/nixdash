@@ -194,6 +194,8 @@ cmd_hub() {
 
     menu_items+=("config   │ ${COLOR_DIM}⚙${COLOR_RESET}  Settings")
 
+    local footer="^L packages · ^S search · ^T shell · ^F flake"
+
     printf '%s\n' "${menu_items[@]}" \
     | fzf \
       --ansi \
@@ -202,18 +204,30 @@ cmd_hub() {
       --layout=reverse \
       --border \
       --header "$header" \
+      --footer "$footer" \
+      --expect=ctrl-l,ctrl-s,ctrl-t,ctrl-f \
       --preview "bash '$nixdash_bin' _hub-preview {1}" \
       --preview-window "right:50%:wrap" \
       --delimiter "│" \
       --with-nth 2.. \
     > "$tmpfile" || { rm -f "$tmpfile"; return 0; }
 
+    local key
+    key="$(head -1 "$tmpfile")"
     local choice
-    choice="$(cat "$tmpfile")"
+    choice="$(tail -n +2 "$tmpfile")"
     rm -f "$tmpfile"
 
     local cmd
-    cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
+    case "$key" in
+      ctrl-l) cmd="list" ;;
+      ctrl-s) cmd="search" ;;
+      ctrl-t) cmd="shell" ;;
+      ctrl-f) cmd="add-flake" ;;
+      *)
+        cmd="$(echo "$choice" | awk -F'│' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1}')"
+        ;;
+    esac
 
     # Commands that modify packages return 10 on success to signal hub exit
     local rc=0
