@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="nixdash" width="580" />
+  <img src="assets/logo.svg" alt="nixdash" width="560" />
 </p>
 
 <h1 align="center">nixdash</h1>

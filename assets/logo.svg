@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="580" height="140" viewBox="0 0 580 140">
-  <rect width="580" height="140" rx="12" fill="#13111c"/>
-  <g font-family="'SFMono-Regular','Menlo','Consolas','Liberation Mono','Courier New',monospace" font-size="14" font-weight="bold">
-    <text xml:space="preserve" x="20" y="35"><tspan fill="#af5fff">▄▄▄    ▄▄▄ ▄▄▄▄▄ ▄▄▄   ▄▄▄ </tspan><tspan fill="#af87ff">▄▄▄▄▄▄     ▄▄▄▄    ▄▄▄▄▄▄▄ </tspan><tspan fill="#875fff">▄▄▄   ▄▄▄</tspan></text>
-    <text xml:space="preserve" x="20" y="55"><tspan fill="#af5fff">████▄  ███  ███  ████▄████ </tspan><tspan fill="#af87ff">███▀▀██▄ ▄██▀▀██▄ █████▀▀▀ </tspan><tspan fill="#875fff">███   ███</tspan></text>
-    <text xml:space="preserve" x="20" y="75"><tspan fill="#af5fff">███▀██▄███  ███   ▀█████▀  </tspan><tspan fill="#af87ff">███  ███ ███  ███  ▀████▄  </tspan><tspan fill="#875fff">█████████</tspan></text>
-    <text xml:space="preserve" x="20" y="95"><tspan fill="#af5fff">███  ▀████  ███  ▄███████▄ </tspan><tspan fill="#af87ff">███  ███ ███▀▀███    ▀████ </tspan><tspan fill="#875fff">███▀▀▀███</tspan></text>
-    <text xml:space="preserve" x="20" y="115"><tspan fill="#af5fff">███    ███ ▄███▄ ███▀ ▀███ </tspan><tspan fill="#af87ff">██████▀  ███  ███ ███████▀ </tspan><tspan fill="#875fff">███   ███</tspan></text>
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="140" viewBox="0 0 560 140">
+  <rect width="560" height="140" rx="12" fill="#13111c"/>
+  <g font-family="'SFMono-Regular','Menlo','Consolas','Liberation Mono','Courier New',monospace" font-size="14" font-weight="bold" text-anchor="middle">
+    <text xml:space="preserve" x="280" y="35"><tspan fill="#af5fff">▄▄▄    ▄▄▄ ▄▄▄▄▄ ▄▄▄   ▄▄▄ </tspan><tspan fill="#af87ff">▄▄▄▄▄▄     ▄▄▄▄    ▄▄▄▄▄▄▄ </tspan><tspan fill="#875fff">▄▄▄   ▄▄▄</tspan></text>
+    <text xml:space="preserve" x="280" y="55"><tspan fill="#af5fff">████▄  ███  ███  ████▄████ </tspan><tspan fill="#af87ff">███▀▀██▄ ▄██▀▀██▄ █████▀▀▀ </tspan><tspan fill="#875fff">███   ███</tspan></text>
+    <text xml:space="preserve" x="280" y="75"><tspan fill="#af5fff">███▀██▄███  ███   ▀█████▀  </tspan><tspan fill="#af87ff">███  ███ ███  ███  ▀████▄  </tspan><tspan fill="#875fff">█████████</tspan></text>
+    <text xml:space="preserve" x="280" y="95"><tspan fill="#af5fff">███  ▀████  ███  ▄███████▄ </tspan><tspan fill="#af87ff">███  ███ ███▀▀███    ▀████ </tspan><tspan fill="#875fff">███▀▀▀███</tspan></text>
+    <text xml:space="preserve" x="280" y="115"><tspan fill="#af5fff">███    ███ ▄███▄ ███▀ ▀███ </tspan><tspan fill="#af87ff">██████▀  ███  ███ ███████▀ </tspan><tspan fill="#875fff">███   ███</tspan></text>
   </g>
 </svg>
