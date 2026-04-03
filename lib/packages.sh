@@ -291,6 +291,14 @@ packages_add() {
   done < "$pkg_file"
 
   mv "$tmpfile" "$pkg_file"
+
+  # If it's a flake input (e.g. envoy.packages.${system}.default),
+  # ensure the input name is in the function arguments (first line)
+  local input_name="${pkg%%.*}"
+  if [[ "$pkg" == *".packages."* ]] && ! head -1 "$pkg_file" | grep -qw "$input_name"; then
+    sed -i "1s/\.\.\./$(printf '%s' "$input_name"), .../" "$pkg_file"
+  fi
+
   # Invalidate cache
   _PACKAGES_CACHE=""
 }
@@ -314,6 +322,16 @@ packages_remove() {
   done < "$pkg_file"
 
   mv "$tmpfile" "$pkg_file"
+
+  # If it was a flake input, remove the input name from function arguments
+  local input_name="${pkg%%.*}"
+  if [[ "$pkg" == *".packages."* ]] && head -1 "$pkg_file" | grep -qw "$input_name"; then
+    # Check no other package uses this input
+    if ! grep -q "${input_name}\." "$pkg_file" 2>/dev/null; then
+      sed -i "1s/, *${input_name}//" "$pkg_file"
+    fi
+  fi
+
   # Invalidate cache
   _PACKAGES_CACHE=""
 }
