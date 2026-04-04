@@ -619,11 +619,31 @@ cmd_list() {
           local prefix="${full_name%%.*}"
           local url=""
           if [[ -n "$flake_file" && -f "$flake_file" ]]; then
+            # Try direct match: name.url = "github:...";
             url="$(grep -oP "${prefix}\\.url\\s*=\\s*\"\\Kgithub:[^\"]*" "$flake_file" 2>/dev/null | head -1)" || true
+
+            # Try block match: name = { url = "github:..."; };
+            if [[ -z "$url" ]]; then
+              url="$(awk -v name="$prefix" '
+                $0 ~ "^[[:space:]]*" name "[[:space:]]*=" { found=1 }
+                found && /url[[:space:]]*=/ {
+                  match($0, /url[[:space:]]*=[[:space:]]*"([^"]*)"/, m)
+                  if (m[1]) { print m[1]; exit }
+                }
+                found && /\}/ { found=0 }
+              ' "$flake_file" 2>/dev/null)" || true
+            fi
+
+            # Try searching all URLs for a match on the prefix
+            if [[ -z "$url" ]]; then
+              url="$(grep -oP 'url\s*=\s*"\K[^"]*'"$prefix"'[^"]*' "$flake_file" 2>/dev/null | head -1)" || true
+            fi
           fi
           if [[ -n "$url" ]]; then
-            local gh_url="https://github.com/${url#github:}"
-            ui_open_url "$gh_url"
+            if [[ "$url" == github:* ]]; then
+              url="https://github.com/${url#github:}"
+            fi
+            ui_open_url "$url"
           else
             ui_warn "URL not found for $prefix"
           fi
