@@ -168,11 +168,7 @@ _search_install_packages() {
 
   rm -f "$backup"
 
-  local apply_cmd
-  apply_cmd="$(config_get "apply_command")"
-  ui_info "Running: $apply_cmd"
-  eval "$apply_cmd"
-  ui_success "$added package(s) installed"
+  apply_run && ui_success "$added package(s) installed"
   return 10
 }
 

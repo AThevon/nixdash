@@ -315,11 +315,7 @@ cmd_add_flake() {
   rm -f "$flake_tmp" "$pkg_tmp"
   _PACKAGES_CACHE=""
 
-  local apply_cmd
-  apply_cmd="$(config_get "apply_command")"
-  ui_info "Running: $apply_cmd"
-  eval "$apply_cmd"
-  ui_success "Flake ${input_name} added and applied"
+  apply_run && ui_success "Flake ${input_name} added and applied"
   return 10
 }
 
@@ -408,7 +404,7 @@ cmd_init() {
   # 8. Detect apply command
   local apply_cmd=""
   if grep -q "home-manager\|homeManagerConfiguration\|homeConfigurations" "$flake_file" 2>/dev/null; then
-    apply_cmd="home-manager switch --flake $(dirname "$flake_file")"
+    apply_cmd="$(apply_resolve_command "home-manager switch --flake $(dirname "$flake_file")")"
   elif grep -q "nixosConfigurations\|nixos-rebuild" "$flake_file" 2>/dev/null; then
     apply_cmd="sudo nixos-rebuild switch --flake $(dirname "$flake_file")"
   fi
@@ -627,4 +623,84 @@ cmd_config() {
         ;;
     esac
   done
+}
+
+# --- Apply ---
+
+# _apply_hm_configs FLAKE_DIR — list homeConfigurations names, one per line
+_apply_hm_configs() {
+  nix eval --json "$1#homeConfigurations" --apply builtins.attrNames 2>/dev/null \
+    | jq -r '.[]' 2>/dev/null
+}
+
+# _apply_current_system — e.g. aarch64-darwin
+_apply_current_system() {
+  nix eval --impure --raw --expr builtins.currentSystem 2>/dev/null
+}
+
+# _apply_pick_hm_target CONFIGS SYSTEM — pick the configuration to switch to.
+# Tries what home-manager tries ($USER@host, $USER), then $USER@SYSTEM,
+# then the only configuration if there is just one. Prints nothing if unsure.
+_apply_pick_hm_target() {
+  local configs="$1" system="$2" candidate
+  local user host_short host_full
+  user="${USER:-$(id -un)}"
+  host_short="$(hostname -s 2>/dev/null)"
+  host_full="$(hostname 2>/dev/null)"
+  for candidate in "$user@$host_full" "$user@$host_short" "$user" "$user@$system"; do
+    [[ "$candidate" == *@ ]] && continue
+    if grep -qxF "$candidate" <<< "$configs"; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  if [[ -n "$configs" && "$(grep -c . <<< "$configs")" -eq 1 ]]; then
+    echo "$configs"
+  fi
+}
+
+# apply_resolve_command CMD — add the Home Manager configuration name to
+# "home-manager switch --flake DIR" when it is missing, so the switch does not
+# depend on the machine hostname. Prints CMD unchanged otherwise.
+apply_resolve_command() {
+  local cmd="$1"
+  if [[ "$cmd" != *"home-manager"*"switch"* ]] || \
+     [[ ! "$cmd" =~ --flake[[:space:]=]+([^[:space:]]+) ]]; then
+    echo "$cmd"
+    return 0
+  fi
+  local ref="${BASH_REMATCH[1]}"
+  if [[ "$ref" == *"#"* ]]; then
+    echo "$cmd"
+    return 0
+  fi
+  local dir="${ref/#\~/$HOME}" target
+  target="$(_apply_pick_hm_target "$(_apply_hm_configs "$dir")" "$(_apply_current_system)")"
+  if [[ -z "$target" ]]; then
+    echo "$cmd"
+    return 0
+  fi
+  local replacement="${ref}#${target}"
+  echo "${cmd/"$ref"/$replacement}"
+}
+
+# apply_run — run the configured apply command and report failures.
+# Returns the command's exit code; callers print success only on 0.
+apply_run() {
+  local apply_cmd resolved
+  apply_cmd="$(config_get "apply_command")"
+  resolved="$(apply_resolve_command "$apply_cmd")"
+  if [[ "$resolved" != "$apply_cmd" ]]; then
+    config_set "apply_command" "$resolved"
+    ui_dim "Apply command updated to target your configuration explicitly"
+    apply_cmd="$resolved"
+  fi
+  ui_info "Running: $apply_cmd"
+  local rc=0
+  eval "$apply_cmd" || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    ui_error "Apply failed (exit $rc): your .nix files were changed but nothing was activated"
+    ui_dim "Fix the error above, then run: $apply_cmd"
+  fi
+  return $rc
 }

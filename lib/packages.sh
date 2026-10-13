@@ -410,11 +410,7 @@ _packages_do_remove() {
   rm -f "$backup"
 
   # Run apply command
-  local apply_cmd
-  apply_cmd="$(config_get "apply_command")"
-  ui_info "Running: $apply_cmd"
-  eval "$apply_cmd"
-  ui_success "Changes applied"
+  apply_run && ui_success "Changes applied"
   return 10
 }
 
@@ -714,10 +710,6 @@ cmd_list() {
 
   rm -f "$backup_pkg" "$backup_flake"
 
-  local apply_cmd
-  apply_cmd="$(config_get "apply_command")"
-  ui_info "Running: $apply_cmd"
-  eval "$apply_cmd"
-  ui_success "${#to_remove_names[@]} package(s) removed"
+  apply_run && ui_success "${#to_remove_names[@]} package(s) removed"
   return 10
 }
