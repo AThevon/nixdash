@@ -103,8 +103,6 @@ ui_open_url() {
     xdg-open "$url"
   elif command -v open &>/dev/null; then
     open "$url"
-  elif command -v wslview &>/dev/null; then
-    wslview "$url"
   else
     ui_warn "Cannot open browser. URL: $url"
   fi
