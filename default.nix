@@ -1,4 +1,4 @@
-{ lib, stdenvNoCC, makeWrapper, fzf, gum, jq, nix-search-tv }:
+{ lib, stdenvNoCC, makeWrapper, fzf, gum, jq, nix-search-tv, gnused }:
 
 stdenvNoCC.mkDerivation rec {
   pname = "nixdash";
@@ -19,7 +19,7 @@ stdenvNoCC.mkDerivation rec {
 
   postFixup = ''
     wrapProgram $out/bin/nixdash \
-      --prefix PATH : ${lib.makeBinPath [ fzf gum jq nix-search-tv ]}
+      --prefix PATH : ${lib.makeBinPath [ fzf gum jq nix-search-tv gnused ]}
   '';
 
   meta = with lib; {
